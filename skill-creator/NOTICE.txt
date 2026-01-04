@@ -1,0 +1,7 @@
+This project is an adaptation of the "skill-creator" skill from the Anthropic Skills repository:
+https://github.com/anthropics/skills/tree/69c0b1a0674149f27b61b2635f935524b6add202/skills/skill-creator
+
+The original work is licensed under the Apache License 2.0:
+http://www.apache.org/licenses/LICENSE-2.0
+
+This adaptation is also licensed under the Apache License 2.0.
