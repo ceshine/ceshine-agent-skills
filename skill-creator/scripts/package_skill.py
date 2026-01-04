@@ -17,12 +17,11 @@ Example:
 import sys
 import zipfile
 from pathlib import Path
-from quick_validate import validate_skill
+from quick_validate import validate_skill  # pyright: ignore[reportImplicitRelativeImport]
 
 
 def package_skill(skill_path, output_dir=None):
-    """
-    Package a skill folder into a .skill file.
+    """Package a skill folder into a .skill file.
 
     Args:
         skill_path: Path to the skill folder
@@ -88,10 +87,10 @@ def package_skill(skill_path, output_dir=None):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python utils/package_skill.py <path/to/skill-folder> [output-directory]")
+        print("Usage: ./utils/package_skill.py <path/to/skill-folder> [output-directory]")
         print("\nExample:")
-        print("  python utils/package_skill.py skills/public/my-skill")
-        print("  python utils/package_skill.py skills/public/my-skill ./dist")
+        print("  ./utils/package_skill.py skills/public/my-skill")
+        print("  ./utils/package_skill.py skills/public/my-skill ./dist")
         sys.exit(1)
 
     skill_path = sys.argv[1]

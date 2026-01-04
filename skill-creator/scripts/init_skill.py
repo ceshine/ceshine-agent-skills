@@ -63,7 +63,7 @@ Delete this entire "Structuring This Skill" section when done - it's just guidan
 [TODO: Add content here. See examples in existing skills:
 - Code samples for technical skills
 - Decision trees for complex workflows
-- Concrete examples with realistic user requests
+- Concrete examples with realistic user request
 - References to scripts/templates/references as needed]
 
 ## Resources
@@ -79,10 +79,10 @@ Executable code (Python/Bash/etc.) that can be run directly to perform specific 
 
 **Appropriate for:** Python scripts, shell scripts, or any executable code that performs automation, data processing, or specific operations.
 
-**Note:** Scripts may be executed without loading into context, but can still be read by Claude for patching or environment adjustments.
+**Note:** Scripts may be executed without loading into context, but can still be read by the agent for patching or environment adjustments.
 
 ### references/
-Documentation and reference material intended to be loaded into context to inform Claude's process and thinking.
+Documentation and reference material intended to be loaded into context to inform the agent's process and thinking.
 
 **Examples from other skills:**
 - Product management: `communication.md`, `context_building.md` - detailed workflow guides
@@ -92,7 +92,7 @@ Documentation and reference material intended to be loaded into context to infor
 **Appropriate for:** In-depth documentation, API references, database schemas, comprehensive guides, or any detailed information that Claude should reference while working.
 
 ### assets/
-Files not intended to be loaded into context, but rather used within the output Claude produces.
+Files not intended to be loaded into context, but rather used within the output the agent produces.
 
 **Examples from other skills:**
 - Brand styling: PowerPoint template files (.pptx), logo files
@@ -106,7 +106,12 @@ Files not intended to be loaded into context, but rather used within the output 
 **Any unneeded directories can be deleted.** Not every skill requires all three types of resources.
 """
 
-EXAMPLE_SCRIPT = '''#!/usr/bin/env python3
+EXAMPLE_SCRIPT = '''#!/usr/bin/env -S uv run --script
+#
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """
 Example helper script for {skill_name}
 

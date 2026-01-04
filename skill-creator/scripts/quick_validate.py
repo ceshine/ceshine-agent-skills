@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.10"
-# dependencies = []
+# dependencies = ["pyyaml"]
 # ///
 """Quick validation script for skills - minimal version"""
 
