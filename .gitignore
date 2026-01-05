@@ -4,3 +4,4 @@
 .opencode
 opencode.json
 **/__pycache__
+**/cache

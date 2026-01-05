@@ -1,0 +1,4 @@
+This project is an adaptation of the "using-superpower" skill from the obra/superpowers repository:
+https://github.com/obra/superpowers/blob/b9e16498b9b6b06defa34cf0d6d345cd2c13ad31/skills/using-superpowers/
+
+The original work is licensed under the MIT License.
