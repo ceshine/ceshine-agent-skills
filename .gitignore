@@ -3,3 +3,4 @@
 .codex
 .opencode
 opencode.json
+**/__pycache__

@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: "Use when the user wants to interact with the local Git repository. Perform operations on local Git repositories: review staged changes, generate commit messages, examine commit history, create pull request descriptions, and more. (This skill will be expanded to cover additional Git workflows.)"
+description: "Always invoke this skill for any git-related request (commit messages, staging review, history, PR descriptions, etc.) so git workflows are handled consistently."
 ---
 
 # Git Workflow
@@ -38,9 +38,9 @@ Perform a code review of staged modifications:
    - **Missing pieces**: Unhandled edge cases, incomplete error handling
    - **Style inconsistencies**: Deviation from project's coding conventions
 3. Summarize findings:
-   - Critical issues that should block the commit
-   - Suggestions for improvement
-   - Questions for the author
+   - Critical issues: Issues that should block the commit
+   - Suggestions: Suggestions for improvement
+   - Questions: Questions for the author
 
 Present findings clearly, distinguishing between blocking issues and optional suggestions.
 
@@ -50,7 +50,7 @@ Create a descriptive commit message based on staged changes through an iterative
 
 **Iterative Workflow:**
 
-1. **Review staged changes** - Perform code review using section 1
+1. **Review staged changes** - Perform code review using the process described in the "1. Review Staged Changes" section.
 2. **Present findings** - Show issues and suggestions to user
 3. **Wait for user** - User may:
    - Edit the staged changes
@@ -66,7 +66,7 @@ Create a descriptive commit message based on staged changes through an iterative
    - What files changed
    - What type of changes (add, modify, delete)
    - Key modifications in the code
-3. Write to `cache/commit_message.txt` in conventional commit format:
+3. Write to `./cache/commit_message.txt` in conventional commit format:
    ```
    <type>(<scope>): <subject>
 
@@ -96,37 +96,30 @@ Returns commit hashes and messages, useful for:
 
 ### 4. Create Pull Request Description
 
-Synthesize diff and commit messages into a PR description:
+Use the diff and recent commits to compose a structured PR body:
 
-1. Get diff for changed files and modifications
-2. Get commit messages for context and intent
-3. Parse and organize the information:
-   - **Summary**: 1-2 sentence overview from commit messages
-   - **Changes**: Key file modifications from diff
-   - **Context**: Commit history showing development progression
+1. Collect the diff for the target branch, preferably against the base (e.g., `origin/main`).
+2. Gather its commit messages to capture intent and progression.
+3. Extract:
+   - **Summary**: A concise paragraph (1-2 sentences) describing the overall intent of the branch.
+   - **Key Changes**: Bullet list that highlights the most important file edits or feature additions.
+   - **Commit History**: Chronological list of commits (hash + message) so reviewers can trace the work.
 
-Format:
+Format suggestions:
 ```markdown
 ## Summary
-[Brief description from commit messages]
+[Commit-driven overview]
 
 ## Key Changes
-- [File]: [Brief change description]
-- ...
-
-## Commit History
-- [Hash] [Message]
+- `[File]`: [Primary modification]
 - ...
 ```
 
-## Workflow: Create PR Description from Branch
+#### Workflow Notes
 
-For a feature branch compared to main:
-
-1. Identify the merge base or ancestor: `origin/main` or `main`
-2. Get diff: `git_diff(ancestor="origin/main")`
-3. Get commit messages: `git_commit_messages(ancestor="origin/main")`
-4. Parse and format into PR description structure
+- Identify the merge base (usually `origin/main` or `main`).
+- Run `git_diff(ancestor="origin/main")` and `git_commit_messages(ancestor="origin/main")` to gather the data.
+- Parse and organize the collected information into the sections above before sharing with the user.
 
 ## Error Handling
 
