@@ -66,7 +66,7 @@ Create a descriptive commit message based on staged changes through an iterative
    - What files changed
    - What type of changes (add, modify, delete)
    - Key modifications in the code
-3. Write to `./cache/commit_message.txt` in conventional commit format:
+3. Write to `./cache/commit_message.txt` in conventional commit format (remove the file if it already exists before attempting to write to it):
    ```
    <type>(<scope>): <subject>
 
