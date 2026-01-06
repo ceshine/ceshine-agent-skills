@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.10"
-# dependencies = []
+# dependencies = ["pyyaml"]
 # ///
 """Skill Packager - Creates a distributable .skill file of a skill folder
 
