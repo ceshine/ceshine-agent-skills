@@ -1,113 +1,90 @@
 ---
 name: context7-skill
-description: This is a skill for using Context7 tools to pull up-to-date, version-specific documentation and code examples from the source. Load this skill whenever you are working with a thrid-party library or framework.
+description: Access up-to-date, version-specific documentation and code examples from Context7. Use this skill to verify library and framework details.
 ---
 
 # Context7 Skill
 
 ## Overview
 
-Context7 tools pull up-to-date, version-specific documentation and code examples straight from the source. They help you get accurate information about the third-party libraries or frameworks you're using. Always look up the documentation for the specific version of the library you're using. DO NOT rely on your memory. Double-check with the documentation.
+The Context7 skill connects you to accurate, version-specific documentation and code examples directly from the source. Use this skill to verify syntax, API details, and usage patterns for third-party libraries and frameworks, ensuring your code is based on the correct version.
 
-You should use a **hybrid access strategy**:
+**Access Methods:**
 
-- **Primary**: Direct MCP tools (i.e., `resolve_library_id`, `query_docs`)
-- **Fallback**: Python script (at `scripts/context7_cli.py`) using FastMCP v2 client when MCP tools are unavailable
+1.  **MCP Tools (Primary):** Direct calls to `resolve_library_id` and `query_docs`.
+2.  **CLI Fallback (Secondary):** A Python script (`scripts/context7_cli.py`) using the FastMCP v2 client, intended for use when direct MCP tools are unavailable.
 
 ## Prerequisites
 
-- uv Python package manager
-- Context7 API key in environment variable `CONTEXT7_API_KEY`
+- **Context7 API Key:** Must be set as the environment variable `CONTEXT7_API_KEY`.
+- **Python Manager (`uv`):** Required only if using the CLI fallback script.
 
-## Available tools
+## Available Tools
 
-### Library Resolver (resolve-library-id)
+### 1. Library Resolver (`resolve-library-id`)
 
-Resolves a package/product name to a Context7-compatible library ID and returns matching libraries.
+Resolves a package or library name to a Context7-compatible library ID and returns a list of matches.
 
-You MUST call this function before 'query-docs' to obtain a valid Context7-compatible library ID UNLESS the user explicitly provides a library ID in the format '/org/project' or '/org/project/version' in their query.
+- **MCP Call:** `resolve_library_id(query="...", libraryName="...")`
+- **CLI Command:** `uv run scripts/context7_cli.py resolve_library_id <name>`
 
-IMPORTANT: Do not call this tool more than 3 times per question. If you cannot find what you need after 3 calls, use the best result you have.
+### 2. Documentation Query (`query-docs`)
 
-**Example Usage:**
+Retrieves documentation and code examples using a specific library ID.
 
-- local MCP: `resolve_library_id(query="react", libraryName="react")`
-- Python script fallback: `uv run scripts/context7_cli.py resolve_library_id react`
+- **MCP Call:** `query_docs(libraryId="/org/project/version", query="...")`
+- **CLI Command:** `uv run scripts/context7_cli.py query_docs <library_id> <query>`
 
-### Documentation Query Tool (query-docs)
+> **IMPORTANT:** Tool names may have prefixes (e.g., `context7_resolve_library_id`) depending on the runtime environment. Always check available tools first.
 
-Retrieves and queries up-to-date documentation and code examples from Context7 for any programming library or framework.
+## Usage Guidelines
 
-You must call 'resolve-library-id' first to obtain the exact Context7-compatible library ID required to use this tool, UNLESS the user explicitly provides a library ID in the format '/org/project' or '/org/project/version' in their query.
-
-IMPORTANT: Do not call this tool more than 3 times per question. If you cannot find what you need after 3 calls, use the best information you have.`
-
-**Example Usage:**
-
-- local MCP: `query_docs(libraryId="react", query="hooks")`
-- Python script fallback: `uv run scripts/context7_cli.py query-docs /websites/react_dev hooks`
+1.  **Resolve First:** Always obtain a valid library ID via `resolve_library_id` before querying, unless the user provides a full ID (e.g., `/org/project/version`).
+2.  **Limit Attempts:** Do not retry a tool call more than three times for the same query. If unsuccessful, proceed with the best available information.
 
 ## Workflow
 
-### Step 1: Pick the Right Access Method
+### Step 1: Check Availability
 
-Check if `resolve_library_id` and `query_docs` MCP tools are available (note that the actual tool names may include a prefix like `context7_` depending on your environment)
+Determine if the `resolve_library_id` and `query_docs` tools are directly available in your environment. If not, default to the CLI fallback commands.
 
-- If available → Use direct MCP tool calls
-- If unavailable → Use `uv run scripts/<script>.py <tool>`
+### Step 2: Resolve Library ID
 
-### Step 2: Lookup the Library ID
+Use `resolve-library-id` to identify the correct library.
 
-Use the `resolve-library-id` tool to identify the correct library ID for the user's query.
+**Selection Criteria:**
 
-Selection Process:
+- **Exact Match:** Prioritize names that exactly match the user's request.
+- **Relevance:** Ensure the description aligns with the user's intent.
+- **Quality:** Look for high documentation coverage (snippet counts), reputation, and benchmark scores.
 
-1. Analyze the query to understand what library/package the user is looking for
-2. Select the most relevant match based on:
-   - Name similarity to the query (exact matches prioritized)
-   - Description relevance to the query's intent
-   - Documentation coverage (prioritize libraries with higher Code Snippet counts)
-   - Source reputation (consider libraries with High or Medium reputation more authoritative)
-   - Benchmark Score: Quality indicator (100 is the highest score)
+_Action:_
 
-For ambiguous queries, request clarification before proceeding with a best-guess match.
+- If ambiguous, ask the user for clarification.
+- Briefly explain the selected library to the user.
+- If no good match is found, clearly state this and suggest query refinements.
 
-- Provide a brief explanation for why this library was chosen
-- If multiple good matches exist, acknowledge this but proceed with the most relevant one
-- If no good matches exist, clearly state this and suggest query refinements
+### Step 3: Query Documentation
 
-### Step 3: Query the Library Documentation
+Use `query-docs` with the resolved `libraryId`.
 
-Use the `query-docs` tool to retrieve relevant documentation for the identified library.
+**Handling Results:**
 
-The tool returns the link for each matching document and the relevant text in the document. Example:
-
-```markdown
-Source: https://github.com/context7/react_dev/blob/main/learn.md
-
-Functions starting with `use` are called Hooks. `useState` is a built-in Hook provided by React that allows you to add state to functional components. You can find other built-in Hooks in the API reference, and you can also write your own Hooks by combining existing ones. Hooks are more restrictive than other functions—you can only call Hooks at the top of your components or other Hooks. If you want to use `useState` in a condition or a loop, you must extract a new component and put the Hook there.
-```
-
-When a fetch tool is available and the extracted text in the tool response does not sufficiently address the query, use the fetch tool to read the entire source document.
+- The tool returns a snippet or summary.
+- **Example Output:**
+  ```markdown
+  Source: https://github.com/context7/react_dev/blob/main/learn.md
+  ... (content) ...
+  ```
+- **Insufficient Info?** If the returned text is incomplete, use a web fetch tool (if available) to retrieve the full content from the provided source URL.
 
 ## Configuration
 
-### Environment Variables
-
-| Variable           | Description          | Default  |
-| ------------------ | -------------------- | -------- |
-| `CONTEXT7_API_KEY` | API key for Context7 | Required |
+| Variable           | Description                               | Required |
+| :----------------- | :---------------------------------------- | :------- |
+| `CONTEXT7_API_KEY` | API key for authenticating with Context7. | Yes      |
 
 ## Resources
 
-### scripts/
-
-Executable Python scripts using FastMCP v2 for fallback access:
-
-- `context7_cli.py` - Unified CLI entry point with `resolve_library_id` and `query-docs` commands
-
-### references/
-
-Detailed documentation:
-
-- `troubleshooting.md` - Common issues and solutions
+- **`scripts/context7_cli.py`**: Unified CLI entry point for fallback access.
+- **`references/troubleshooting.md`**: Solutions for common integration issues.
