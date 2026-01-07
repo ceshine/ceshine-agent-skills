@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["fastmcp>=2.14.0", "httpx>=0.25.0", "pyyaml>=6.0", "typer>=0.12.0"]
+# dependencies = ["fastmcp>=2.14.0,<3", "typer>=0.12.0"]
 # ///
 
 """Context7 Unified CLI
@@ -18,7 +18,7 @@ Usage:
 import asyncio
 import json
 import os
-from typing import Optional
+from typing import Optional, Any
 from dataclasses import dataclass
 
 import typer
@@ -72,11 +72,11 @@ class Context7Client:
         await self._client.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
         """Async context manager exit."""
         await self._client.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def resolve_library_id(self, library_name: str, query: str) -> dict:
+    async def resolve_library_id(self, library_name: str, query: str) -> dict[str, Any]:
         """Resolve a library name to Context7 library ID."""
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
@@ -86,7 +86,7 @@ class Context7Client:
         )
         return self._parse_result(result)
 
-    async def query_docs(self, library_id: str, query: str) -> dict:
+    async def query_docs(self, library_id: str, query: str) -> dict[str, Any]:
         """Query documentation for a specific library."""
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
@@ -94,7 +94,7 @@ class Context7Client:
         result = await self._client.call_tool("context7_query_docs", {"libraryId": library_id, "query": query})
         return self._parse_result(result)
 
-    def _parse_result(self, result) -> dict:
+    def _parse_result(self, result: Any) -> dict[str, Any]:
         """Parse FastMCP tool result into dictionary."""
         if hasattr(result, "content"):
             content = result.content
@@ -104,14 +104,14 @@ class Context7Client:
         return {"result": str(result)}
 
 
-async def _resolve_library(library_name: str, query: str | None = None) -> dict:
+async def _resolve_library(library_name: str, query: str | None = None) -> dict[str, Any]:
     """Resolve library name to Context7 library ID."""
     query = query or library_name
     async with Context7Client() as client:
         return await client.resolve_library_id(library_name, query)
 
 
-async def _query_docs(library_id: str, query: str) -> dict:
+async def _query_docs(library_id: str, query: str) -> dict[str, Any]:
     """Query documentation for a specific library."""
     async with Context7Client() as client:
         return await client.query_docs(library_id, query)
