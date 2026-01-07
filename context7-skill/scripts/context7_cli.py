@@ -18,8 +18,7 @@ Usage:
 import asyncio
 import json
 import os
-from typing import Optional, Any
-from dataclasses import dataclass
+from typing import Any
 
 import typer
 from fastmcp import Client
@@ -28,17 +27,7 @@ from fastmcp.client.transports import StreamableHttpTransport
 APP = typer.Typer()
 
 
-@dataclass
-class Context7Config:
-    """Configuration for Context7 client."""
-
-    api_key: str
-    base_url: str = "https://api.context7.com/mcp"
-    timeout: float = 30.0
-    max_retries: int = 3
-
-
-def get_api_key() -> str:
+def _get_api_key() -> str:
     """Get API key from environment variable or config file."""
     api_key = os.getenv("CONTEXT7_API_KEY")
     if not api_key:
@@ -46,25 +35,16 @@ def get_api_key() -> str:
     return api_key
 
 
-def get_config() -> Context7Config:
-    """Load configuration from environment or config file."""
-    return Context7Config(
-        api_key=get_api_key(),
-        timeout=float(os.getenv("CONTEXT7_TIMEOUT", "30")),
-        max_retries=int(os.getenv("CONTEXT7_MAX_RETRIES", "3")),
-    )
-
-
 class Context7Client:
     """FastMCP client wrapper for Context7 MCP server."""
 
-    def __init__(self, config: Optional[Context7Config] = None):
-        self.config = config or get_config()
+    def __init__(self):
+        self._api_key: str = _get_api_key()
         self._client: Client = Client(self._get_transport())
 
     def _get_transport(self) -> StreamableHttpTransport:
         """Create StreamableHttpTransport for Context7 MCP."""
-        return StreamableHttpTransport(self.config.base_url, headers={"Authorization": f"Bearer {self.config.api_key}"})
+        return StreamableHttpTransport("https://mcp.context7.com/mcp", headers={"CONTEXT7_API_KEY": self._api_key})
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -76,14 +56,30 @@ class Context7Client:
         """Async context manager exit."""
         await self._client.__aexit__(exc_type, exc_val, exc_tb)
 
+    async def list_tools(self) -> list[dict[str, str]]:
+        """Return all tools available from the Context7 MCP server"""
+        if not self._client:
+            raise RuntimeError("Client not initialized. Use async context manager.")
+
+        result = await self._client.list_tools()
+        return [
+            {
+                "name": x.name,
+                "title": x.title,
+                "description": x.description,
+                "input_schema": x.inputSchema,
+                "output_schema": x.outputSchema,
+            }
+            for x in result
+        ]
+
     async def resolve_library_id(self, library_name: str, query: str) -> dict[str, Any]:
         """Resolve a library name to Context7 library ID."""
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
-        result = await self._client.call_tool(
-            "context7_resolve_library_id", {"query": query, "libraryName": library_name}
-        )
+        result = await self._client.call_tool("resolve-library-id", {"query": query, "libraryName": library_name})
+
         return self._parse_result(result)
 
     async def query_docs(self, library_id: str, query: str) -> dict[str, Any]:
@@ -91,15 +87,17 @@ class Context7Client:
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
-        result = await self._client.call_tool("context7_query_docs", {"libraryId": library_id, "query": query})
+        result = await self._client.call_tool("query-docs", {"libraryId": library_id, "query": query})
         return self._parse_result(result)
 
     def _parse_result(self, result: Any) -> dict[str, Any]:
         """Parse FastMCP tool result into dictionary."""
+        if hasattr(result, "structured_content") and result.structured_content is not None:
+            return result.structured_content
         if hasattr(result, "content"):
             content = result.content
             if isinstance(content, list):
-                return {"content": [str(item) for item in content]}
+                return {"content": [item.text if item.type == "text" else str(item) for item in content]}
             return {"content": str(content)}
         return {"result": str(result)}
 
@@ -117,6 +115,12 @@ async def _query_docs(library_id: str, query: str) -> dict[str, Any]:
         return await client.query_docs(library_id, query)
 
 
+async def _list_tools() -> list[dict[str, str]]:
+    """List available tools."""
+    async with Context7Client() as client:
+        return await client.list_tools()
+
+
 @APP.command()
 def resolve(
     library: str = typer.Argument(help="Library name to resolve"),
@@ -125,7 +129,7 @@ def resolve(
     """Resolve library name to Context7 library ID."""
     try:
         result = asyncio.run(_resolve_library(library, query))
-        print(json.dumps(result, indent=2))
+        print("\n\n".join(result["content"]))
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -139,6 +143,17 @@ def query_docs(
     """Query documentation for a specific library."""
     try:
         result = asyncio.run(_query_docs(library_id, query))
+        print("\n\n".join(result["content"]))
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@APP.command()
+def list_tools():
+    """List all available tools from the Context7 MCP server."""
+    try:
+        result = asyncio.run(_list_tools())
         print(json.dumps(result, indent=2))
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)

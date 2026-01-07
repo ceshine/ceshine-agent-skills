@@ -29,15 +29,17 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ### When Direct MCP Tools Are Available
 
-The agent automatically uses Context7 MCP tools directly:
+The agent automatically uses Context7 MCP tools (`resolve_library_id` and `query_docs`) directly:
 
 ```python
 # Resolve library ID
-context7_resolve_library_id(query="react", libraryName="react")
+resolve_library_id(query="react", libraryName="react")
 
 # Query documentation
-context7_query_docs(libraryId="react", query="hooks")
+query_docs(libraryId="react", query="hooks")
 ```
+
+Note that the actual tool names may include a prefix like `context7_` depending on your environment.
 
 ### When MCP Tools Are Unavailable
 
@@ -45,17 +47,17 @@ Fallback to Python scripts using FastMCP v2 client:
 
 ```bash
 # Get library ID
-uv run --script scripts/context7_cli.py resolve react
+uv run scripts/context7_cli.py resolve react
 
 # Query documentation using the library ID (use id-123 as an example)
-uv run --script scripts/context7_cli.py query-docs id-123 hooks
+uv run scripts/context7_cli.py query-docs id-123 hooks
 ```
 
 ### Decision Flow
 
-- Check if `context7_resolve_library_id` and `context7_query_docs` are available (note that the `context_7` prefix may be different in your environment)
+- Check if `resolve_library_id` and `query_docs` tools are available (note that the actual tool names may include a prefix like `context7_` depending on your environment)
   - If available → Use direct MCP tool calls
-  - If unavailable → Use `uv run --script scripts/<script>.py <args>`
+  - If unavailable → Use `uv run scripts/<script>.py <args>`
 
 ## Direct MCP Access
 
