@@ -122,7 +122,7 @@ async def _list_tools() -> list[dict[str, str]]:
 
 
 @APP.command()
-def resolve(
+def resolve_library_id(
     library: str = typer.Argument(help="Library name to resolve"),
     query: str = typer.Option("", help="Optional query string"),
 ):
