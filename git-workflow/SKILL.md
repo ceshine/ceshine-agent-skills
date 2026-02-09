@@ -12,9 +12,10 @@ Generate comprehensive pull request descriptions by analyzing git state: staged 
 Try tools with these stems in their names first. Fall back to bash if unavailable (see Error Handling section for procedure):
 
 **MCP tools (preferred):**
-- `git_diff(ancestor)` - Get diff from ancestor commit/branch to HEAD
-- `git_cached_diff()` - Get staged (cached) changes
-- `git_commit_messages(ancestor)` - Get commit messages from ancestor to HEAD
+- `git-diff(ancestor)` - Get diff from ancestor commit/branch to HEAD
+- `git-cached-diff()` - Get staged (cached) changes
+- `git-commit-messages(ancestor)` - Get commit messages from ancestor to HEAD
+> **IMPORTANT:** Tool names may have prefixes (e.g., `git-tools_git-diff`) depending on the runtime environment. Always check available tools first.
 
 **Bash fallbacks:**
 ```bash
@@ -29,7 +30,7 @@ git log --oneline <ancestor>..HEAD     # Commit messages from ancestor to HEAD
 
 Perform a code review of staged modifications:
 
-1. Get cached changes: `git_cached_diff()` or `git diff --cached`
+1. Get cached changes: `git-cached-diff()` or `git diff --cached`
 2. Analyze the diff for:
    - **Syntax errors**: Missing semicolons, brackets, or typos
    - **Logic issues**: Broken conditions, off-by-one errors, null reference risks
@@ -48,7 +49,7 @@ Present findings clearly, distinguishing between blocking issues and optional su
 
 Extract commit messages to understand the history:
 
-**MCP:** `git_commit_messages(ancestor="<commit-or-branch>")`
+**MCP:** `git-commit-messages(ancestor="<commit-or-branch>")`
 **Bash:** `git log --oneline <commit-or-branch>..HEAD`
 
 Returns commit hashes and messages, useful for:
@@ -70,12 +71,12 @@ Create a descriptive commit message based on staged changes through an iterative
    - Acknowledge issues but proceed
    - Ask for clarification
 4. **Repeat review** - If user modified changes, review again
-5. **Load history** - Load the two most recent commit messages (e.g., `git log -n 2` or `git_commit_messages(ancestor="HEAD~2")`) to ensure historical context.
+5. **Load history** - Load the two most recent commit messages (e.g., `git_commit_messages(ancestor="HEAD~2")`) to ensure historical context.
 6. **Generate commit message** - Only after user approves
 
 **Generate Commit Message:**
 
-1. Get cached changes: `git_cached_diff()` or `git diff --cached`
+1. Get cached changes: `git-cached-diff()` or `git diff --cached`
 2. Analyze the diff to identify:
    - What files changed
    - What type of changes (add, modify, delete)
@@ -121,18 +122,20 @@ Format suggestions:
 #### Workflow Notes
 
 - Identify the merge base (usually `origin/main` or `main`).
-- Run `git_diff(ancestor="origin/main")` and `git_commit_messages(ancestor="origin/main")` to gather the data.
+- Run `git-diff(ancestor="origin/main")` and `git-commit-messages(ancestor="origin/main")` to gather the data.
 - Parse and organize the collected information into the sections above before sharing with the user.
 
 ## Error Handling
 
 If git MCP tools are unavailable:
+
 1. Inform the user: "Git MCP tools not detected. These tools provide git diff, cached diff, and commit message functionality."
 2. Ask: "Would you like to proceed using bash commands instead?"
 3. If user confirms, use the bash fallbacks documented above
 4. If user declines, stop the workflow
 
 If git commands fail:
+
 - Verify git repository
 - Check ancestor exists (commit hash or branch name)
 - Ensure working directory is clean or handle uncommitted changes
