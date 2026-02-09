@@ -71,7 +71,7 @@ Create a descriptive commit message based on staged changes through an iterative
    - Acknowledge issues but proceed
    - Ask for clarification
 4. **Repeat review** - If user modified changes, review again
-5. **Load history** - Load the two most recent commit messages (e.g., `git_commit_messages(ancestor="HEAD~2")`) to ensure historical context.
+5. **Load history** - Load the two most recent commit messages (e.g., `git-commit-messages(ancestor="HEAD~2")`) to ensure historical context.
 6. **Generate commit message** - Only after user approves
 
 **Generate Commit Message:**
