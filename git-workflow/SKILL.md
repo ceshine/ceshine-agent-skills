@@ -62,27 +62,15 @@ Returns commit hashes and messages, useful for:
 
 Create a descriptive commit message based on staged changes through an iterative review process:
 
-**Iterative Workflow:**
-
 1. **Review staged changes** - Perform code review using the process described in the "1. Review Staged Changes" section.
-2. **Present findings** - Show issues and suggestions to user
-3. **Wait for user** - User may:
-   - Edit the staged changes
-   - Acknowledge issues but proceed
-   - Ask for clarification
-4. **Repeat review** - If user modified changes, review again
-5. **Load history** - Load the two most recent commit messages (e.g., `git-commit-messages(ancestor="HEAD~2")`) to ensure historical context.
-6. **Generate commit message** - Only after user approves
-
-**Generate Commit Message:**
-
-1. Get cached changes: `git-cached-diff()` or `git diff --cached`
-2. Analyze the diff to identify:
-   - What files changed
-   - What type of changes (add, modify, delete)
-   - Key modifications in the code
-3. Load the two most recent commit messages to ensure the new message follows the same format and considers the historical context.
-4. Write to `./cache/commit_message.txt` in conventional commit format (remove the file if it already exists before attempting to write to it):
+2. **Present findings and wait for feedback** - Show issues and suggestions to user. User may:
+  - Edit the staged changes
+  - Acknowledge issues if any but proceed
+  - Ask for clarification
+  - Or simply confirm they have reviewed the findings and approve moving on
+  **Only move on to the the next step after an explicit approval from the user**.
+3. **Load history** - Load the two most recent commit messages (e.g., `git-commit-messages(ancestor="HEAD~2")`) to ensure historical context.
+4. **Draft the commit message** - write it to `./cache/commit_message.txt` in the conventional commit format (remove the file if it already exists before attempting to write to it):
    ```
    <type>(<scope>): <subject>
 
@@ -90,13 +78,14 @@ Create a descriptive commit message based on staged changes through an iterative
 
    <footer>
    ```
-   - Type: feat, fix, docs, style, refactor, test, chore
-   - Scope: (optional) the area of code affected
-   - Description: brief explanation of changes
-   - Body: detailed description if needed
-   - Footer: breaking changes or issue references
-5. Display the commit message to the user for review
-6. Allow user to edit if needed before committing
+  - Type: feat, fix, docs, style, refactor, test, chore
+  - Scope: (optional) the area of code affected
+  - Description: brief explanation of changes
+  - Body: detailed description if needed
+  - Footer: breaking changes or issue references
+5. **Display the commit message** - User may:
+  - Request revision
+  - Approve the commit message
 
 ### 4. Create Pull Request Description
 
