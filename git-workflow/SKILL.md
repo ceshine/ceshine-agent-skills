@@ -21,7 +21,7 @@ Try tools with these stems in their names first. Fall back to bash if unavailabl
 ```bash
 git diff <ancestor>..HEAD              # Diff between ancestor and HEAD
 git diff --cached                      # Staged changes only
-git log --oneline <ancestor>..HEAD     # Commit messages from ancestor to HEAD
+git log <ancestor>..HEAD     # Commit messages from ancestor to HEAD
 ```
 
 ## Operations
@@ -50,7 +50,7 @@ Present findings clearly, distinguishing between blocking issues and optional su
 Extract commit messages to understand the history:
 
 **MCP:** `git-commit-messages(ancestor="<commit-or-branch>")`
-**Bash:** `git log --oneline <commit-or-branch>..HEAD`
+**Bash:** `git log <commit-or-branch>..HEAD`
 
 Returns commit hashes and messages, useful for:
 
