@@ -15,6 +15,7 @@ Try tools with these stems in their names first. Fall back to bash if unavailabl
 
 - `git-diff(ancestor)` - Get diff from ancestor commit/branch to HEAD
 - `git-cached-diff()` - Get staged (cached) changes
+- `git-unstaged-diff()` - Get unstaged changes
 - `git-commit-messages(ancestor)` - Get commit messages from ancestor to HEAD
 > **IMPORTANT:** Tool names may have prefixes (e.g., `git-tools_git-diff`) depending on the runtime environment. Always check available tools first.
 
@@ -22,8 +23,9 @@ Try tools with these stems in their names first. Fall back to bash if unavailabl
 
 ```bash
 git diff <ancestor>..HEAD              # Diff between ancestor and HEAD
-git diff --cached                      # Staged changes only
-git log <ancestor>..HEAD     # Commit messages from ancestor to HEAD
+git diff --cached                      # Staged changes
+git diff                               # Unstaged changes
+git log <ancestor>..HEAD               # Commit messages from ancestor to HEAD
 ```
 
 Always get the full commit messages, avoid the `--oneline` argument when using the `git log` command for a complete review.
@@ -36,12 +38,34 @@ Always get the full commit messages, avoid the `--oneline` argument when using t
 
 ## Operations
 
-### 1. Review Staged Changes
+### 1. Review Changes
 
-Perform a code review of staged modifications:
+Perform a code review of modifications. Choose the appropriate sub-operation based on the user's request:
+
+#### 1a. Review Staged Changes
+
+Review modifications that have been staged (added to the index) but not yet committed:
 
 1. Get cached changes: `git-cached-diff()` or `git diff --cached`
 2. Follow the code review guidelines to evaluate changes
+
+#### 1b. Review Unstaged Changes
+
+Review modifications in the working directory that have not yet been staged:
+
+1. Get unstaged changes: `git-unstaged-diff()` or `git diff`
+2. Follow the code review guidelines to evaluate changes
+
+#### 1c. Review Changes Between Two Commits
+
+Review the diff introduced between any two commits, branches, or refs:
+
+1. Identify the two refs (e.g., `HEAD~3` and `HEAD`, or `main` and a feature branch).
+2. Get the diff: `git-diff(ancestor="<base-ref>")` (compares base-ref to HEAD) or `git diff <base-ref>..<target-ref>`
+3. Optionally gather the commit messages in that range: `git-commit-messages(ancestor="<base-ref>")` or `git log <base-ref>..<target-ref>` to understand the intent behind the changes.
+4. Follow the code review guidelines to evaluate changes
+
+---
 
 Present findings clearly, distinguishing between blocking issues and optional suggestions.
 
@@ -62,7 +86,7 @@ Returns commit hashes and messages, useful for:
 
 Create a descriptive commit message based on staged changes through an iterative review process:
 
-1. **Review staged changes** - Perform code review using the process described in the "1. Review Staged Changes" section.
+1. **Review staged changes** - Perform code review using the process described in the "1a. Review Staged Changes" section.
 2. **Present findings and wait for feedback** - Show issues and suggestions to user. User may:
   - Edit the staged changes
   - Acknowledge issues if any but proceed
@@ -82,7 +106,7 @@ Create a descriptive commit message based on staged changes through an iterative
   - Scope: (optional) the area of code affected
   - Description: brief explanation of changes
   - Body: itemized details of changes. Highlight breaking changes or issue references
-  - Footer: Ask the user what your name is if uncertain
+  - Footer: Ask the user what your name is if uncertain. The should be in the format: `<harness name> (<model name>)` (e.g., `Claude Code (Sonnet 4.6)`)
 5. **Display the commit message** - User may:
   - Request revision
   - Approve the commit message -> Commit the changes with the message and end the process.
