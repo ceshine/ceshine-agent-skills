@@ -1,6 +1,8 @@
 ## Review Guidelines
 
-**Important Principles**
+### Principles
+
+**Decision Making**
 
 - Prefer clarity and explicitness over cleverness
 - Balance pragmatism with long-term maintainability
@@ -8,21 +10,21 @@
   - "Perfect is the enemy of good"
 - Reference project conventions in `AGENTS.md` or `CLAUDE.md`
 
-**Be Constructive**
+**Communication: Be Constructive**
 
 - Explain _why_ something matters
 - Provide specific, actionable recommendations
 - Include code examples for fixes
 - Acknowledge good practices
 
-**Context Matters**
+**Pay Attention to Context**
 
 - Consider project conventions
 - Match surrounding code style when editing
 - Balance improvement with backwards compatibility
 - Know when rules have valid exceptions
 
-**Prioritize**
+### Prioritize Issues
 
 1. **Critical**: Security issues, correctness bugs
 2. **High**: Significant readability/maintainability issues

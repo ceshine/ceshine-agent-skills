@@ -218,9 +218,7 @@ List any skipped or excluded files.
 
 ## Error Handling
 
-| Scenario | Action |
-|----------|--------|
-| **Staging area contaminated mid-workflow** | Run `git reset HEAD` to unstage everything. Inform the user and ask whether to retry or abort. |
-| **Commit fails** (e.g., pre-commit hook) | Show the error. Ask user whether to fix and retry, or skip this group. |
-| **Hunk staging produces unexpected results** | Show `git diff --cached` output. Ask user for guidance. |
-| **User wants to stop mid-workflow** | Run `git reset HEAD` to clean up any partially staged changes. Report which commits were already completed. |
+- **Staging area contaminated mid-workflow**: Run `git reset HEAD` to unstage everything. Inform the user and ask whether to retry or abort.
+- **Commit fails** (e.g., pre-commit hook): Show the error. Ask user whether to fix and retry, or skip this group.
+- **Hunk staging produces unexpected results**: Show `git diff --cached` output. Ask user for guidance.
+- **User wants to stop mid-workflow**: Run `git reset HEAD` to clean up any partially staged changes. Report which commits were already completed.
