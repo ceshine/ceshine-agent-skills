@@ -35,6 +35,7 @@ Always get the full commit messages, avoid the `--oneline` argument when using t
 - Code Review Tasks:
   - Read `references/general_code_review_guidelines.md` for the general guidelines.
   - Read `references/python_code_review_guidelines.md` if you are reviewing Python code.
+  - Read `references/rust_code_review_guidelines.md` if you are reviewing Rust code.
 - Auto-Commit Workflow:
   - Read `references/auto_commit_workflow.md` for the grouping algorithm and step-by-step process.
 
