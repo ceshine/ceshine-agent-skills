@@ -32,7 +32,7 @@ Always get the full commit messages, avoid the `--oneline` argument when using t
 
 ## Building Blocks
 
-- Code Review Tasks:
+- Code Review Tasks (**Always read these files if you are performing any kind of code review task**):
   - Read `references/general_code_review_guidelines.md` for the general guidelines.
   - Read `references/python_code_review_guidelines.md` if you are reviewing Python code.
   - Read `references/rust_code_review_guidelines.md` if you are reviewing Rust code.
@@ -49,7 +49,7 @@ Always get the full commit messages, avoid the `--oneline` argument when using t
 
 ### 1. Review Changes
 
-Perform a code review of modifications. Choose the appropriate sub-operation based on the user's request:
+**Read the appropriate reference files for code review tasks (see Building Blocks above) before proceeding.** Then choose the appropriate sub-operation based on the user's request:
 
 #### 1a. Review Staged Changes
 
@@ -95,7 +95,7 @@ Returns commit hashes and messages, useful for:
 
 Create a descriptive commit message based on staged changes through an iterative review process:
 
-1. **Review staged changes** - Perform code review using the process described in the "1a. Review Staged Changes" section.
+1. **Review staged changes** - Read `references/general_code_review_guidelines.md` (and any language-specific guidelines), then perform a code review using the process described in the "1a. Review Staged Changes" section.
 2. **Present findings and wait for feedback** - Show issues and suggestions to user. User may:
   - Edit the staged changes
   - Acknowledge issues if any but proceed
