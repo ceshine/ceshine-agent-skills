@@ -7,28 +7,20 @@ description: "Always invoke this skill for any git-related request (commit messa
 
 Generate comprehensive pull request descriptions by analyzing git state: staged changes, commit history, and diffs between commits or branches.
 
-## Tool Selection
+## Git Data Scripts
 
-Try tools with these stems in their names first. Fall back to bash if unavailable (see Error Handling section for procedure):
-
-**MCP tools (preferred):**
-
-- `git-diff(ancestor)` - Get diff from ancestor commit/branch to HEAD
-- `git-cached-diff()` - Get staged (cached) changes
-- `git-unstaged-diff()` - Get unstaged changes
-- `git-commit-messages(ancestor)` - Get commit messages from ancestor to HEAD
-> **IMPORTANT:** Tool names may have prefixes (e.g., `git-tools_git-diff`) depending on the runtime environment. Always check available tools first.
-
-**Bash fallbacks:**
+Use the scripts in `scripts/` to extract git data. **Do not run raw `git diff` or `git log` commands directly** — always use these scripts to ensure consistent output and exclude patterns.
 
 ```bash
-git diff <ancestor>..HEAD              # Diff between ancestor and HEAD
-git diff --cached                      # Staged changes
-git diff                               # Unstaged changes
-git log <ancestor>..HEAD               # Commit messages from ancestor to HEAD
+scripts/git-diff.sh <ancestor>         # Diff between ancestor and HEAD
+scripts/git-cached-diff.sh             # Staged (cached) changes
+scripts/git-unstaged-diff.sh           # Unstaged changes (working tree vs index)
+scripts/git-commit-messages.sh <ancestor>  # Commit messages from ancestor to HEAD
 ```
 
-Always get the full commit messages, avoid the `--oneline` argument when using the `git log` command for a complete review.
+Scripts must be run from the skill directory, or invoked with their full path relative to the repository root (e.g., `git-workflows/scripts/git-diff.sh main`).
+
+**Exclude patterns:** Files matching patterns in `scripts/excludes.conf` are excluded from diff output. Set the `GIT_SKILL_EXCLUDES` env variable (colon-separated patterns) to override.
 
 ## Building Blocks
 
@@ -55,14 +47,14 @@ Always get the full commit messages, avoid the `--oneline` argument when using t
 
 Review modifications that have been staged (added to the index) but not yet committed:
 
-1. Get cached changes: `git-cached-diff()` or `git diff --cached`
+1. Get cached changes: `scripts/git-cached-diff.sh`
 2. Follow the code review guidelines to evaluate changes
 
 #### 1b. Review Unstaged Changes
 
 Review modifications in the working directory that have not yet been staged:
 
-1. Get unstaged changes: `git-unstaged-diff()` or `git diff`
+1. Get unstaged changes: `scripts/git-unstaged-diff.sh`
 2. Follow the code review guidelines to evaluate changes
 
 #### 1c. Review Changes Between Two Commits
@@ -70,8 +62,8 @@ Review modifications in the working directory that have not yet been staged:
 Review the diff introduced between any two commits, branches, or refs:
 
 1. Identify the two refs (e.g., `HEAD~3` and `HEAD`, or `main` and a feature branch).
-2. Get the diff: `git-diff(ancestor="<base-ref>")` (compares base-ref to HEAD) or `git diff <base-ref>..<target-ref>`
-3. Optionally gather the commit messages in that range: `git-commit-messages(ancestor="<base-ref>")` or `git log <base-ref>..<target-ref>` to understand the intent behind the changes.
+2. Get the diff: `scripts/git-diff.sh <base-ref>` (compares base-ref to HEAD).
+3. Optionally gather the commit messages in that range: `scripts/git-commit-messages.sh <base-ref>` to understand the intent behind the changes.
 4. Follow the code review guidelines to evaluate changes
 
 ---
@@ -82,8 +74,7 @@ Present findings clearly, distinguishing between blocking issues and optional su
 
 Extract commit messages to understand the history:
 
-**MCP:** `git-commit-messages(ancestor="<commit-or-branch>")`
-**Bash:** `git log <commit-or-branch>..HEAD`
+`scripts/git-commit-messages.sh <commit-or-branch>`
 
 Returns commit hashes and messages, useful for:
 
@@ -102,7 +93,7 @@ Create a descriptive commit message based on staged changes through an iterative
   - Ask for clarification
   - Or simply confirm they have reviewed the findings and approve moving on
   **Only move on to the the next step after an explicit approval from the user**.
-3. **Load history** - Load the two most recent commit messages (e.g., `git-commit-messages(ancestor="HEAD~2")`) to ensure historical context.
+3. **Load history** - Load the two most recent commit messages (e.g., `scripts/git-commit-messages.sh HEAD~2`) to ensure historical context.
 4. **Draft the commit message** - write it to `./cache/commit_message.txt` in the conventional commit format (remove the file if it already exists before attempting to write to it):
    ```
    <type>(<scope>): <subject>
@@ -144,7 +135,7 @@ Format suggestions:
 #### Workflow Notes
 
 - Identify the merge base (usually `origin/main` or `main`).
-- Run `git-diff(ancestor="origin/main")` and `git-commit-messages(ancestor="origin/main")` to gather the data.
+- Run `scripts/git-diff.sh origin/main` and `scripts/git-commit-messages.sh origin/main` to gather the data.
 - Parse and organize the collected information into the sections above before sharing with the user.
 
 ### 5. Auto-Commit Unstaged Changes
@@ -161,15 +152,8 @@ Automatically analyze, group, and commit unstaged changes into organized convent
 
 ## Error Handling
 
-If git MCP tools are unavailable:
+If a script fails:
 
-1. Inform the user: "Git MCP tools not detected. These tools provide git diff, cached diff, and commit message functionality."
-2. Ask: "Would you like to proceed using bash commands instead?"
-3. If user confirms, use the bash fallbacks documented above
-4. If user declines, stop the workflow
-
-If git commands fail:
-
-- Verify git repository
-- Check ancestor exists (commit hash or branch name)
-- Ensure working directory is clean or handle uncommitted changes
+- Verify you are inside a git repository
+- Check the ancestor ref exists (commit hash or branch name)
+- Ensure the scripts are executable (`chmod +x scripts/*.sh`)
