@@ -20,6 +20,15 @@ npx skills add <skill-name>
 | [generate-commit-message](generate-commit-message/) | (Shortcut Command) Generate a commit message for staged git changes. |
 | [context7-skill](context7-skill/) | Access up-to-date, version-specific documentation and code examples from Context7. |
 | [markdown-dot-new](markdown-dot-new/) | Convert a public web page URL into Markdown via `markdown.new`. |
+| [web-search-and-fetch](web-search-and-fetch/) | Using patchright to conduct Google search and fetch web pages in the Markdown format. Skill file copied directly from the [`skill-for-cli/`](https://github.com/ceshine/python-playwright-google-search/tree/main/skill-for-cli) subfolder of the [ceshine/python-playwright-google-search](https://github.com/ceshine/python-playwright-google-search) repo. |
+
+## Agent Extensions
+
+These are not skills — they are extensions for other coding agents, hosted here for convenience.
+
+| Extension | Description |
+|-----------|-------------|
+| [pi-extensions](pi-extensions/) | Extensions for the [Pi coding agent](https://github.com/badlogic/pi-mono). |
 
 ## Acknowledgements
 
