@@ -2,6 +2,6 @@
 .gemini
 .codex
 .opencode
-opencode.json
 **/__pycache__
 **/cache
+*.json
