@@ -25,12 +25,24 @@
  *     "deniedDomains": []
  *   },
  *   "filesystem": {
- *     "denyRead": ["~/.ssh", "~/.aws"],
+ *     "denyRead": ["/Users", "/home"],
+ *     "allowRead": [".", "./docs"],
  *     "allowWrite": [".", "/tmp"],
  *     "denyWrite": [".env"]
  *   }
  * }
  * ```
+ *
+ * IMPORTANT: Read uses a "deny-then-allow" pattern:
+ * - By default, ALL reads are ALLOWED.
+ * - denyRead blocks broad regions (e.g., "/Users", "~/.ssh")
+ * - allowRead RE-ALLOWS specific paths WITHIN denied regions.
+ * - Without a matching denyRead, allowRead has no effect!
+ *
+ * Write uses an "allow-only" pattern:
+ * - By default, ALL writes are DENIED.
+ * - allowWrite must explicitly list allowed paths.
+ * - denyWrite creates exceptions within allowed paths.
  *
  * Usage:
  * - `pi -e ./sandbox` - sandbox enabled with default/config settings
@@ -46,6 +58,7 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   SandboxManager,
@@ -60,6 +73,31 @@ import {
 
 interface SandboxConfig extends SandboxRuntimeConfig {
   enabled?: boolean;
+}
+
+function expandTilde(path: string): string {
+  if (path.startsWith("~/")) {
+    return join(homedir(), path.slice(2));
+  }
+  if (path === "~") {
+    return homedir();
+  }
+  return path;
+}
+
+function expandFilesystemPaths(config: SandboxConfig): SandboxConfig {
+  if (!config.filesystem) return config;
+
+  return {
+    ...config,
+    filesystem: {
+      ...config.filesystem,
+      denyRead: config.filesystem.denyRead?.map(expandTilde),
+      allowRead: config.filesystem.allowRead?.map(expandTilde),
+      allowWrite: config.filesystem.allowWrite?.map(expandTilde),
+      denyWrite: config.filesystem.denyWrite?.map(expandTilde),
+    },
+  };
 }
 
 const DEFAULT_CONFIG: SandboxConfig = {
@@ -80,7 +118,12 @@ const DEFAULT_CONFIG: SandboxConfig = {
     deniedDomains: [],
   },
   filesystem: {
-    denyRead: ["~/.ssh", "~/.aws", "~/.gnupg"],
+    // NOTE: Read uses "deny-then-allow" pattern:
+    // - denyRead blocks regions (all reads allowed if empty)
+    // - allowRead re-allows within denied regions
+    // This restricts reads to workspace only:
+    denyRead: ["/Users", "/home"],
+    allowRead: ["."],
     allowWrite: [".", "/tmp"],
     denyWrite: [".env", ".env.*", "*.pem", "*.key"],
   },
@@ -278,9 +321,11 @@ export default function (pi: ExtensionAPI) {
         enableWeakerNestedSandbox?: boolean;
       };
 
+      const configWithExpandedPaths = expandFilesystemPaths(config);
+
       await SandboxManager.initialize({
-        network: config.network,
-        filesystem: config.filesystem,
+        network: configWithExpandedPaths.network,
+        filesystem: configWithExpandedPaths.filesystem,
         ignoreViolations: configExt.ignoreViolations,
         enableWeakerNestedSandbox: configExt.enableWeakerNestedSandbox,
       });
@@ -289,12 +334,14 @@ export default function (pi: ExtensionAPI) {
       sandboxInitialized = true;
 
       const networkCount = config.network?.allowedDomains?.length ?? 0;
+      const denyReadCount = config.filesystem?.denyRead?.length ?? 0;
+      const allowReadCount = config.filesystem?.allowRead?.length ?? 0;
       const writeCount = config.filesystem?.allowWrite?.length ?? 0;
       ctx.ui.setStatus(
         "sandbox",
         ctx.ui.theme.fg(
           "accent",
-          `🔒 Sandbox: ${networkCount} domains, ${writeCount} write paths`,
+          `🔒 Sandbox: ${networkCount} domains, ${denyReadCount}+${allowReadCount} read paths, ${writeCount} write paths`,
         ),
       );
       ctx.ui.notify("Sandbox initialized", "info");
@@ -334,6 +381,7 @@ export default function (pi: ExtensionAPI) {
         `  Denied: ${config.network?.deniedDomains?.join(", ") || "(none)"}`,
         "",
         "Filesystem:",
+        `  Allow Read: ${config.filesystem?.allowRead?.join(", ") || "(none)"}`,
         `  Deny Read: ${config.filesystem?.denyRead?.join(", ") || "(none)"}`,
         `  Allow Write: ${config.filesystem?.allowWrite?.join(", ") || "(none)"}`,
         `  Deny Write: ${config.filesystem?.denyWrite?.join(", ") || "(none)"}`,
