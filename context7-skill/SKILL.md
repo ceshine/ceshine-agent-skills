@@ -19,6 +19,14 @@ The Context7 skill connects you to accurate, version-specific documentation and 
 - **Context7 API Key:** Must be set as the environment variable `CONTEXT7_API_KEY`.
 - **Python Manager (`uv`):** Required only if using the CLI fallback script.
 
+### Important Security Requirement
+
+DO NOT attempt to read or set the environment variable `CONTEXT7_API_KEY`. It is the user's responsibility to prepare this API key in their environment. Only check for its existence:
+
+```bash
+[ -n "$CONTEXT7_API_KEY" ] && echo "CONTEXT7_API_KEY is set" || echo "CONTEXT7_API_KEY not set"
+```
+
 ## Available Tools
 
 ### 1. Library Resolver (`resolve-library-id`)
@@ -26,14 +34,14 @@ The Context7 skill connects you to accurate, version-specific documentation and 
 Resolves a package or library name to a Context7-compatible library ID and returns a list of matches.
 
 - **MCP Call:** `resolve_library_id(query="...", libraryName="...")`
-- **CLI Command:** `uv run --script scripts/context7_cli.py resolve-library-id <name>`
+- **CLI Command:** `uv run --script {path_to_this_skill}/scripts/context7_cli.py resolve-library-id <name>`
 
 ### 2. Documentation Query (`query-docs`)
 
 Retrieves documentation and code examples using a specific library ID.
 
 - **MCP Call:** `query_docs(libraryId="/org/project/version", query="...")`
-- **CLI Command:** `uv run --script scripts/context7_cli.py query-docs <library_id> <query>`
+- **CLI Command:** `uv run --script {path_to_this_skill}/scripts/context7_cli.py query-docs <library_id> <query>`
 
 > **IMPORTANT:** Tool names may have prefixes (e.g., `context7_resolve_library_id`) depending on the runtime environment. Always check available tools first.
 
