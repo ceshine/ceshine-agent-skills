@@ -20,6 +20,7 @@
  * ```json
  * {
  *   "enabled": true,
+ *   "ignoreList": ["docker ", "kubectl "],
  *   "network": {
  *     "allowedDomains": ["github.com", "*.github.com"],
  *     "deniedDomains": []
@@ -73,6 +74,7 @@ import {
 
 interface SandboxConfig extends SandboxRuntimeConfig {
   enabled?: boolean;
+  ignoreList?: string[]; // Command prefixes that bypass sandbox with confirmation
 }
 
 function expandTilde(path: string): string {
@@ -100,8 +102,24 @@ function expandFilesystemPaths(config: SandboxConfig): SandboxConfig {
   };
 }
 
+function shouldBypassSandbox(
+  command: string,
+  ignoreList?: string[],
+): { bypass: boolean; matchedPrefix?: string } {
+  if (!ignoreList || ignoreList.length === 0) {
+    return { bypass: false };
+  }
+  for (const prefix of ignoreList) {
+    if (command.startsWith(prefix)) {
+      return { bypass: true, matchedPrefix: prefix };
+    }
+  }
+  return { bypass: false };
+}
+
 const DEFAULT_CONFIG: SandboxConfig = {
   enabled: true,
+  ignoreList: [],
   network: {
     allowedDomains: [
       "npmjs.org",
@@ -167,6 +185,9 @@ function deepMerge(
   }
   if (overrides.filesystem) {
     result.filesystem = { ...base.filesystem, ...overrides.filesystem };
+  }
+  if (overrides.ignoreList !== undefined) {
+    result.ignoreList = overrides.ignoreList;
   }
 
   const extOverrides = overrides as {
@@ -270,12 +291,57 @@ export default function (pi: ExtensionAPI) {
 
   let sandboxEnabled = false;
   let sandboxInitialized = false;
+  let currentConfig: SandboxConfig | undefined;
 
   pi.registerTool({
     ...localBash,
     label: "bash (sandboxed)",
-    async execute(id, params, signal, onUpdate, _ctx) {
+    async execute(id, params, signal, onUpdate, ctx) {
       if (!sandboxEnabled || !sandboxInitialized) {
+        return localBash.execute(id, params, signal, onUpdate);
+      }
+
+      const command = params.command as string;
+      const bypassCheck = shouldBypassSandbox(
+        command,
+        currentConfig?.ignoreList,
+      );
+
+      if (bypassCheck.bypass) {
+        if (!ctx.hasUI) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Sandbox-bypassing command denied because of no UI available for confirmation.",
+              },
+            ],
+            block: true,
+            reason:
+              "Command matches sandbox bypass prefix but no UI available for confirmation",
+          };
+        }
+
+        const choice = await ctx.ui.select(
+          `⚠️ Command bypasses sandbox:\n\n  ${command}\n\nAllow unsandboxed execution?`,
+          ["Yes", "No"],
+        );
+
+        if (choice !== "Yes") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Sandbox-bypassing command denied. Stop and consult the user.",
+              },
+            ],
+            block: true,
+            reason: "Sandbox-bypassing command denied by user",
+          };
+        }
+
+        ctx.ui.notify("⚠️ Running a sandbox-bypassing command", "warning");
+
         return localBash.execute(id, params, signal, onUpdate);
       }
 
@@ -286,8 +352,46 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.on("user_bash", () => {
+  pi.on("user_bash", async (event, ctx) => {
     if (!sandboxEnabled || !sandboxInitialized) return;
+
+    const command = (event.command as string) || "";
+    const bypassCheck = shouldBypassSandbox(command, currentConfig?.ignoreList);
+
+    if (bypassCheck.bypass) {
+      if (!ctx.hasUI) {
+        // Return a dummy operation that rejects instead of trying to block
+        return {
+          operations: {
+            exec: async () => {
+              throw new Error(
+                "Command matches sandbox bypass prefix but no UI available for confirmation",
+              );
+            },
+          },
+        };
+      }
+
+      const choice = await ctx.ui.select(
+        `⚠️ Command bypasses sandbox:\n\n  ${command}\n\nAllow unsandboxed execution?`,
+        ["Yes", "No"],
+      );
+
+      if (choice !== "Yes") {
+        // Return a dummy operation that rejects instead of trying to block
+        return {
+          operations: {
+            exec: async () => {
+              throw new Error("Sandbox-bypassing command denied by user");
+            },
+          },
+        };
+      }
+
+      // User approved - don't return anything to use default (unsandboxed) operations
+      return;
+    }
+
     return { operations: createSandboxedBashOps() };
   });
 
@@ -300,7 +404,8 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    const config = loadConfig(ctx.cwd);
+    currentConfig = loadConfig(ctx.cwd);
+    const config = currentConfig;
 
     if (!config.enabled) {
       sandboxEnabled = false;
@@ -337,11 +442,12 @@ export default function (pi: ExtensionAPI) {
       const denyReadCount = config.filesystem?.denyRead?.length ?? 0;
       const allowReadCount = config.filesystem?.allowRead?.length ?? 0;
       const writeCount = config.filesystem?.allowWrite?.length ?? 0;
+      const ignoreListCount = config.ignoreList?.length ?? 0;
       ctx.ui.setStatus(
         "sandbox",
         ctx.ui.theme.fg(
           "accent",
-          `🔒 Sandbox: ${networkCount} domains, ${denyReadCount}+${allowReadCount} read paths, ${writeCount} write paths`,
+          `🔒 Sandbox: ${networkCount} domains, ${denyReadCount}+${allowReadCount} read paths, ${writeCount} write paths, ${ignoreListCount} ignore`,
         ),
       );
       ctx.ui.notify("Sandbox initialized", "info");
@@ -385,6 +491,8 @@ export default function (pi: ExtensionAPI) {
         `  Deny Read: ${config.filesystem?.denyRead?.join(", ") || "(none)"}`,
         `  Allow Write: ${config.filesystem?.allowWrite?.join(", ") || "(none)"}`,
         `  Deny Write: ${config.filesystem?.denyWrite?.join(", ") || "(none)"}`,
+        "",
+        `Ignore List: ${config.ignoreList?.join(", ") || "(none)"}`,
       ];
       ctx.ui.notify(lines.join("\n"), "info");
     },
