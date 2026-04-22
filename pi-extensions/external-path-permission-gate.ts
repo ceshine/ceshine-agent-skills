@@ -134,7 +134,7 @@ function loadSettingsFile(
       getOptionalStringArray(settings, "allowedPathsOutsideCwd");
 
     if (allowedExternalPathsRaw === undefined) {
-      return DEFAULT_SETTINGS;
+      return null; // Not configured in this file; allow fallback to other sources.
     }
 
     return {
