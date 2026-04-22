@@ -23,6 +23,8 @@ On Linux, add `--with-deps` if the system is missing shared libraries (needs sud
 
 Invoke from a stable working directory. `./browser-state.json` is read/written in the CWD; reusing it across calls keeps cookies/session alive and lowers rate-limit risk.
 
+Do not modify the `uvx` command templates — do not add `&&`, `;`, `|`, redirects, environment variables, or anything before or after the command. Altering the template breaks sandbox whitelist pattern detection. Use the exact forms shown below.
+
 ### Search
 
 ```bash
