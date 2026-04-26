@@ -93,8 +93,8 @@ Create a descriptive commit message based on staged changes through an iterative
   - Ask for clarification
   - Or simply confirm they have reviewed the findings and approve moving on
   **Only move on to the the next step after an explicit approval from the user**.
-3. **Load history** - Load the two most recent commit messages (e.g., `scripts/git-commit-messages.sh HEAD~2`) to ensure historical context.
-4. **Draft the commit message** - write it to `./cache/commit_message.txt` in the conventional commit format (remove the file if it already exists before attempting to write to it):
+3. **Load history** - Load the three most recent commit messages (e.g., `scripts/git-commit-messages.sh HEAD~3`) to ensure historical context.
+4. **Draft the commit message** - write it to `{cwd}/cache/commit_message.txt` in the conventional commit format (`{cwd}` is the directory in which the agent was invoked; first remove the file if it already exists, then write to it):
    ```
    <type>(<scope>): <subject>
 
