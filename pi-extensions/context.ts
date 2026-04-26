@@ -455,12 +455,12 @@ class ContextView implements Component {
       // bar width tries to fit within the viewport
       const barWidth = Math.max(10, Math.min(36, width - 10));
 
+      const barUsed = Math.round((w.percent / 100) * barWidth);
       const bar =
         renderUsageBar(
           this.theme,
-          w.messageTokens,
-          w.remainingTokens,
-          w.contextWindow,
+          barUsed,
+          barWidth,
           barWidth,
         ) +
         " " +
