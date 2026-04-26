@@ -9,6 +9,43 @@
  * - current context window usage + session totals (tokens/cost)
  *
  * Adapted from: https://github.com/mitsuhiko/agent-stuff/blob/521cafdb9ed3923e8ace90c5af9d2c7d92c10f86/extensions/context.ts
+ *
+ * ── Token estimation heuristics ──
+ *
+ * Context window usage has three possible states:
+ *
+ *   1. **null** — no model loaded, context window unknown
+ *   2. **"unknown"** — model loaded, context window known, but token count
+ *      unavailable because there's no completed LLM response to anchor
+ *      the estimate (fresh session, post-compaction, or all responses
+ *      aborted/errored). In this state we show "waiting for first LLM response".
+ *   3. **known** — tracked by pi's getContextUsage(), which uses a hybrid
+ *      approach: real inputTokens from the last completed API response,
+ *      plus chars/4 estimation for any messages added since that response.
+ *
+ * Why "unknown" exists: pi's estimateContextTokens() falls back to pure
+ * chars/4 heuristics when there's no assistant usage data in the session.
+ * In a fresh session this produces a tiny non-null number (just system
+ * prompt bytes ÷ 4) that looks precise but isn't grounded in any real
+ * API measurement. We suppress it to avoid misleading confidence.
+ *
+ * Tool definition tokens are NOT added separately to effectiveTokens below
+ * because Pi injects tool descriptions directly into the system prompt
+ * (see AgentSession._rebuildSystemPrompt in agent-session.js). When tools
+ * are activated or deactivated, Pi rebuilds the entire system prompt to
+ * include tool snippets and guidelines, so getContextUsage().tokens — which
+ * counts all message tokens including the system prompt — already captures
+ * them. Adding our own heuristic estimate on top would double-count.
+ *
+ * We still compute toolsTokens separately for display purposes only, so the
+ * user can see a rough breakdown. Note: changing tools mid-session invalidates
+ * prompt caching (Anthropic/OpenAI cache from the first message), since the
+ * system prompt — the conversation prefix — is regenerated entirely.
+ *
+ * Other estimates (system prompt, AGENTS files, individual messages)
+ * all use the same chars ÷ 4 heuristic, which deliberately overestimates
+ * slightly (~4 chars per token is a common rough approximation for
+ * English text; actual tokenizers vary by language, code, etc.).
  */
 
 import type {
@@ -236,6 +273,23 @@ function sumSessionUsage(ctx: ExtensionCommandContext): {
   };
 }
 
+/**
+ * Check whether the session has recorded usage from at least one
+ * successful (non-aborted, non-error) assistant response.
+ * Without such a response, getContextUsage().tokens is pure estimation
+ * with no real API data anchor, so we should show "unknown" instead.
+ */
+function hasCompletedAssistantResponse(ctx: ExtensionCommandContext): boolean {
+  for (const entry of ctx.sessionManager.getEntries()) {
+    if ((entry as any)?.type !== "message") continue;
+    const msg = (entry as any)?.message;
+    if (!msg || msg.role !== "assistant") continue;
+    if (msg.stopReason === "aborted" || msg.stopReason === "error") continue;
+    if (msg.usage) return true;
+  }
+  return false;
+}
+
 function shortenPath(p: string, cwd: string): string {
   const rp = path.resolve(p);
   const rc = path.resolve(cwd);
@@ -283,22 +337,23 @@ function joinCommaStyled(
   return items.map(renderItem).join(sep);
 }
 
+type WindowUsage = {
+  messageTokens: number;
+  contextWindow: number;
+  effectiveTokens: number;
+  percent: number;
+  remainingTokens: number;
+};
+
 type ContextViewData = {
-  usage: {
-    // message-based context usage estimate from ctx.getContextUsage()
-    messageTokens: number;
-    contextWindow: number;
-    // effective usage incl. a rough tool-definition estimate
-    effectiveTokens: number;
-    percent: number;
-    remainingTokens: number;
-    systemPromptTokens: number;
-    agentTokens: number;
-    toolsTokens: number;
-    activeTools: number;
-  } | null;
+  // null = no model/context window info; object = known window usage; "unknown" = model exists but token count unavailable
+  window: WindowUsage | null | "unknown";
+  systemPromptTokens: number;
+  agentTokens: number;
+  toolsTokens: number;
+  activeTools: number;
+  activeToolNames: string[];
   agentFiles: string[];
-  extensions: string[];
   skills: string[];
   loadedSkills: string[];
   session: { totalTokens: number; totalCost: number };
@@ -346,17 +401,21 @@ class ContextView implements Component {
     const lines: string[] = [];
 
     // Window + bar
-    if (!this.data.usage) {
+    if (this.data.window === null) {
       lines.push(muted("Window: ") + dim("(unknown)"));
+    } else if (this.data.window === "unknown") {
+      lines.push(
+        muted("Window: ") + text("~unknown tokens") + muted(" · ") + dim("waiting for first LLM response"),
+      );
     } else {
-      const u = this.data.usage;
+      const w = this.data.window;
       lines.push(
         muted("Window: ") +
           text(
-            `~${u.effectiveTokens.toLocaleString()} / ${u.contextWindow.toLocaleString()}`,
+            `~${w.effectiveTokens.toLocaleString()} / ${w.contextWindow.toLocaleString()}`,
           ) +
           muted(
-            `  (${u.percent.toFixed(1)}% used, ~${u.remainingTokens.toLocaleString()} left)`,
+            `  (${w.percent.toFixed(1)}% used, ~${w.remainingTokens.toLocaleString()} left)`,
           ),
       );
 
@@ -364,18 +423,18 @@ class ContextView implements Component {
       const barWidth = Math.max(10, Math.min(36, width - 10));
 
       // Prorate system prompt into current message context estimate, then add tools estimate.
-      const sysInMessages = Math.min(u.systemPromptTokens, u.messageTokens);
-      const convoInMessages = Math.max(0, u.messageTokens - sysInMessages);
+      const sysInMessages = Math.min(this.data.systemPromptTokens, w.messageTokens);
+      const convoInMessages = Math.max(0, w.messageTokens - sysInMessages);
       const bar =
         renderUsageBar(
           this.theme,
           {
             system: sysInMessages,
-            tools: u.toolsTokens,
+            tools: this.data.toolsTokens,
             convo: convoInMessages,
-            remaining: u.remainingTokens,
+            remaining: w.remainingTokens,
           },
-          u.contextWindow,
+          w.contextWindow,
           barWidth,
         ) +
         " " +
@@ -395,18 +454,21 @@ class ContextView implements Component {
 
     lines.push("");
 
-    // System prompt + tools totals (approx)
-    if (this.data.usage) {
-      const u = this.data.usage;
+    // System prompt + tools totals (approx) — always shown when model exists
+    lines.push(
+      muted("System: ") +
+        text(`~${this.data.systemPromptTokens.toLocaleString()} tok`) +
+        muted(` (AGENTS ~${this.data.agentTokens.toLocaleString()})`),
+    );
+    lines.push(
+      muted("Tools: ") +
+        text(`~${this.data.toolsTokens.toLocaleString()} tok`) +
+        muted(` (${this.data.activeTools} active)`),
+    );
+    if (this.data.activeToolNames.length) {
       lines.push(
-        muted("System: ") +
-          text(`~${u.systemPromptTokens.toLocaleString()} tok`) +
-          muted(` (AGENTS ~${u.agentTokens.toLocaleString()})`),
-      );
-      lines.push(
-        muted("Tools: ") +
-          text(`~${u.toolsTokens.toLocaleString()} tok`) +
-          muted(` (${u.activeTools} active)`),
+        muted("  ") +
+          muted(joinComma(this.data.activeToolNames)),
       );
     }
 
@@ -419,14 +481,6 @@ class ContextView implements Component {
         ),
     );
     lines.push("");
-    lines.push(
-      muted(`Extensions (${this.data.extensions.length}): `) +
-        text(
-          this.data.extensions.length
-            ? joinComma(this.data.extensions)
-            : "(none)",
-        ),
-    );
 
     const loaded = new Set(this.data.loadedSkills);
     const skillsRendered = this.data.skills.length
@@ -534,19 +588,7 @@ export default function contextExtension(pi: ExtensionAPI) {
     description: "Show loaded context overview",
     handler: async (_args, ctx: ExtensionCommandContext) => {
       const commands = pi.getCommands();
-      const extensionCmds = commands.filter((c) => c.source === "extension");
       const skillCmds = commands.filter((c) => c.source === "skill");
-
-      const extensionsByPath = new Map<string, string[]>();
-      for (const c of extensionCmds) {
-        const p = c.sourceInfo?.path ?? "<unknown>";
-        const arr = extensionsByPath.get(p) ?? [];
-        arr.push(c.name);
-        extensionsByPath.set(p, arr);
-      }
-      const extensionFiles = [...extensionsByPath.keys()]
-        .map((p) => (p === "<unknown>" ? p : path.basename(p)))
-        .sort((a, b) => a.localeCompare(b));
 
       const skills = skillCmds
         .map((c) => normalizeSkillName(c.name))
@@ -564,12 +606,12 @@ export default function contextExtension(pi: ExtensionAPI) {
         : 0;
 
       const usage = ctx.getContextUsage();
-      const messageTokens = usage?.tokens ?? 0;
       const ctxWindow = usage?.contextWindow ?? 0;
 
-      // Tool definitions are not part of ctx.getContextUsage() (it estimates message tokens).
-      // We approximate their token impact from tool name + description, and apply a fudge
-      // factor to account for parameters/schema/formatting.
+      // Tool definitions are always computable regardless of context usage state.
+      // We estimate them for display only — they are NOT added to effectiveTokens
+      // because Pi injects tool descriptions into the system prompt, so
+      // messageTokens already includes them. See header comment for details.
       const TOOL_FUDGE = 1.5;
       const activeToolNames = pi.getActiveTools();
       const toolInfoByName = new Map(
@@ -583,22 +625,45 @@ export default function contextExtension(pi: ExtensionAPI) {
       }
       toolsTokens = Math.round(toolsTokens * TOOL_FUDGE);
 
-      const effectiveTokens = messageTokens + toolsTokens;
-      const percent = ctxWindow > 0 ? (effectiveTokens / ctxWindow) * 100 : 0;
-      const remainingTokens =
-        ctxWindow > 0 ? Math.max(0, ctxWindow - effectiveTokens) : 0;
+      // Three states for context window usage:
+      //   null      → no model / unknown context window (usage === undefined)
+      //   "unknown" → model exists, context window known, but token count unavailable
+      //              (post-compaction, fresh session, or no completed LLM response yet)
+      //   object    → normal known usage with a real API-data anchor
+      let window: WindowUsage | null | "unknown";
+      if (!usage) {
+        window = null;
+      } else if (usage.tokens === null || !hasCompletedAssistantResponse(ctx)) {
+        window = "unknown";
+      } else {
+        const messageTokens = usage.tokens;
+        const effectiveTokens = messageTokens; // tools already counted in system prompt
+        const percent = ctxWindow > 0 ? (effectiveTokens / ctxWindow) * 100 : 0;
+        const remainingTokens =
+          ctxWindow > 0 ? Math.max(0, ctxWindow - effectiveTokens) : 0;
+
+        window = {
+          messageTokens,
+          contextWindow: ctxWindow,
+          effectiveTokens,
+          percent,
+          remainingTokens,
+        };
+      }
 
       const sessionUsage = sumSessionUsage(ctx);
 
       const makePlainText = () => {
         const lines: string[] = [];
         lines.push("Context");
-        if (usage) {
-          lines.push(
-            `Window: ~${effectiveTokens.toLocaleString()} / ${ctxWindow.toLocaleString()} (${percent.toFixed(1)}% used, ~${remainingTokens.toLocaleString()} left)`,
-          );
-        } else {
+        if (window === null) {
           lines.push("Window: (unknown)");
+        } else if (window === "unknown") {
+          lines.push(`Window: ~unknown / ${ctxWindow.toLocaleString()} (waiting for first LLM response)`);
+        } else {
+          lines.push(
+            `Window: ~${window.effectiveTokens.toLocaleString()} / ${ctxWindow.toLocaleString()} (${window.percent.toFixed(1)}% used, ~${window.remainingTokens.toLocaleString()} left)`,
+          );
         }
         lines.push(
           `System: ~${systemPromptTokens.toLocaleString()} tok (AGENTS ~${agentTokens.toLocaleString()})`,
@@ -606,12 +671,13 @@ export default function contextExtension(pi: ExtensionAPI) {
         lines.push(
           `Tools: ~${toolsTokens.toLocaleString()} tok (${activeToolNames.length} active)`,
         );
+        if (activeToolNames.length) {
+          lines.push(`  ${joinComma(activeToolNames)}`);
+        }
         lines.push(
           `AGENTS: ${agentFilePaths.length ? joinComma(agentFilePaths) : "(none)"}`,
         );
-        lines.push(
-          `Extensions (${extensionFiles.length}): ${extensionFiles.length ? joinComma(extensionFiles) : "(none)"}`,
-        );
+
         lines.push(
           `Skills (${skills.length}): ${skills.length ? joinComma(skills) : "(none)"}`,
         );
@@ -634,21 +700,13 @@ export default function contextExtension(pi: ExtensionAPI) {
       );
 
       const viewData: ContextViewData = {
-        usage: usage
-          ? {
-              messageTokens,
-              contextWindow: ctxWindow,
-              effectiveTokens,
-              percent,
-              remainingTokens,
-              systemPromptTokens,
-              agentTokens,
-              toolsTokens,
-              activeTools: activeToolNames.length,
-            }
-          : null,
+        window,
+        systemPromptTokens,
+        agentTokens,
+        toolsTokens,
+        activeTools: activeToolNames.length,
+        activeToolNames,
         agentFiles: agentFilePaths,
-        extensions: extensionFiles,
         skills,
         loadedSkills,
         session: {
