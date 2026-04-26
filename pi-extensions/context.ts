@@ -300,7 +300,7 @@ function shortenPath(p: string, cwd: string): string {
 
 function renderUsageBar(
   theme: any,
-  parts: { system: number; tools: number; convo: number; remaining: number },
+  used: number,
   total: number,
   width: number,
 ): string {
@@ -308,21 +308,17 @@ function renderUsageBar(
   if (total <= 0) return "";
 
   const toCols = (n: number) => Math.round((n / total) * w);
-  let sys = toCols(parts.system);
-  let tools = toCols(parts.tools);
-  let con = toCols(parts.convo);
-  let rem = w - sys - tools - con;
-  if (rem < 0) rem = 0;
+  let usedCols = toCols(used);
+  let freeCols = w - usedCols;
+  if (freeCols < 0) freeCols = 0;
   // adjust rounding drift
-  while (sys + tools + con + rem < w) rem++;
-  while (sys + tools + con + rem > w && rem > 0) rem--;
+  while (usedCols + freeCols < w) freeCols++;
+  while (usedCols + freeCols > w && freeCols > 0) freeCols--;
 
   const block = "█";
-  const sysStr = theme.fg("accent", block.repeat(sys));
-  const toolsStr = theme.fg("warning", block.repeat(tools));
-  const conStr = theme.fg("success", block.repeat(con));
-  const remStr = theme.fg("dim", block.repeat(rem));
-  return `${sysStr}${toolsStr}${conStr}${remStr}`;
+  const usedStr = theme.fg("accent", block.repeat(usedCols));
+  const freeStr = theme.fg("dim", block.repeat(freeCols));
+  return `${usedStr}${freeStr}`;
 }
 
 function joinComma(items: string[]): string {
@@ -340,7 +336,6 @@ function joinCommaStyled(
 type WindowUsage = {
   messageTokens: number;
   contextWindow: number;
-  effectiveTokens: number;
   percent: number;
   remainingTokens: number;
 };
@@ -450,7 +445,7 @@ class ContextView implements Component {
       lines.push(
         muted("Window: ") +
           text(
-            `~${w.effectiveTokens.toLocaleString()} / ${w.contextWindow.toLocaleString()}`,
+            `~${w.messageTokens.toLocaleString()} / ${w.contextWindow.toLocaleString()}`,
           ) +
           muted(
             `  (${w.percent.toFixed(1)}% used, ~${w.remainingTokens.toLocaleString()} left)`,
@@ -460,30 +455,17 @@ class ContextView implements Component {
       // bar width tries to fit within the viewport
       const barWidth = Math.max(10, Math.min(36, width - 10));
 
-      // Prorate system prompt into current message context estimate, then add tools estimate.
-      const sysInMessages = Math.min(this.data.systemPromptTokens, w.messageTokens);
-      const convoInMessages = Math.max(0, w.messageTokens - sysInMessages);
       const bar =
         renderUsageBar(
           this.theme,
-          {
-            system: sysInMessages,
-            tools: this.data.toolsTokens,
-            convo: convoInMessages,
-            remaining: w.remainingTokens,
-          },
+          w.messageTokens,
+          w.remainingTokens,
           w.contextWindow,
           barWidth,
         ) +
         " " +
-        dim("sys") +
+        dim("used") +
         this.theme.fg("accent", "█") +
-        " " +
-        dim("tools") +
-        this.theme.fg("warning", "█") +
-        " " +
-        dim("convo") +
-        this.theme.fg("success", "█") +
         " " +
         dim("free") +
         this.theme.fg("dim", "█");
@@ -688,16 +670,14 @@ export default function contextExtension(pi: ExtensionAPI) {
       } else if (usage.tokens === null || !hasCompletedAssistantResponse(ctx)) {
         window = "unknown";
       } else {
-        const messageTokens = usage.tokens;
-        const effectiveTokens = messageTokens; // tools already counted in system prompt
-        const percent = ctxWindow > 0 ? (effectiveTokens / ctxWindow) * 100 : 0;
+        const messageTokens = usage.tokens; // tools already counted in system prompt
+        const percent = ctxWindow > 0 ? (messageTokens / ctxWindow) * 100 : 0;
         const remainingTokens =
-          ctxWindow > 0 ? Math.max(0, ctxWindow - effectiveTokens) : 0;
+          ctxWindow > 0 ? Math.max(0, ctxWindow - messageTokens) : 0;
 
         window = {
           messageTokens,
           contextWindow: ctxWindow,
-          effectiveTokens,
           percent,
           remainingTokens,
         };
@@ -715,7 +695,7 @@ export default function contextExtension(pi: ExtensionAPI) {
           lines.push(`Window: ~unknown / ${ctxWindow.toLocaleString()} (waiting for first LLM response)`);
         } else {
           lines.push(
-            `Window: ~${window.effectiveTokens.toLocaleString()} / ${ctxWindow.toLocaleString()} (${window.percent.toFixed(1)}% used, ~${window.remainingTokens.toLocaleString()} left)`,
+            `Window: ~${window.messageTokens.toLocaleString()} / ${ctxWindow.toLocaleString()} (${window.percent.toFixed(1)}% used, ~${window.remainingTokens.toLocaleString()} left)`,
           );
         }
         lines.push(
