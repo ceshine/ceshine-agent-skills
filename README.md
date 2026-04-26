@@ -22,13 +22,17 @@ npx skills add <skill-name>
 | [markdown-dot-new](markdown-dot-new/) | Convert a public web page URL into Markdown via `markdown.new`. |
 | [web-search-and-fetch](web-search-and-fetch/) | Using patchright to conduct Google search and fetch web pages in the Markdown format. Skill file copied directly from the [`skill-for-cli/`](https://github.com/ceshine/python-playwright-google-search/tree/main/skill-for-cli) subfolder of the [ceshine/python-playwright-google-search](https://github.com/ceshine/python-playwright-google-search) repo. |
 
-## Agent Extensions
+## Pi Extensions
 
-These are not skills — they are extensions for other coding agents, hosted here for convenience.
+Extensions for the [Pi coding agent](https://github.com/badlogic/pi-mono). See [`pi-extensions/README.md`](pi-extensions/README.md) for detailed documentation.
 
-| Extension | Description |
-|-----------|-------------|
-| [pi-extensions](pi-extensions/) | Extensions for the [Pi coding agent](https://github.com/badlogic/pi-mono). |
+| Extension | Path | Description |
+|-----------|------|-------------|
+| `bash-permission-gate` | [`bash-permission-gate.ts`](pi-extensions/bash-permission-gate.ts) | Intercepts dangerous `bash` commands and prompts for confirmation. |
+| `external-path-permission-gate` | [`external-path-permission-gate.ts`](pi-extensions/external-path-permission-gate.ts) | Prompts before file operations on paths outside the working directory. |
+| `protected-paths` | [`protected-paths.ts`](pi-extensions/protected-paths.ts) | Declares paths as read-only or blocked for Pi's file tools. |
+| `output-styles` | [`output-styles/`](pi-extensions/output-styles/) | Configurable output styles (tone, verbosity, formatting). |
+| `sandbox` | [`sandbox/`](pi-extensions/sandbox/) | OS-level sandboxing for bash commands. |
 
 ## Acknowledgements
 
