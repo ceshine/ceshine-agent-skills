@@ -211,9 +211,9 @@ type SkillLoadedEntryData = {
 function getLoadedSkillsFromSession(ctx: ExtensionContext): Set<string> {
   const out = new Set<string>();
   for (const e of ctx.sessionManager.getEntries()) {
-    if ((e as any)?.type !== "custom") continue;
-    if ((e as any)?.customType !== SKILL_LOADED_ENTRY) continue;
-    const data = (e as any)?.data as SkillLoadedEntryData | undefined;
+    if (e.type !== "custom") continue;
+    if (e.customType !== SKILL_LOADED_ENTRY) continue;
+    const data = e.data as SkillLoadedEntryData | undefined;
     if (data?.name) out.add(data.name);
   }
   return out;
@@ -251,8 +251,8 @@ function sumSessionUsage(ctx: ExtensionCommandContext): {
   let totalCost = 0;
 
   for (const entry of ctx.sessionManager.getEntries()) {
-    if ((entry as any)?.type !== "message") continue;
-    const msg = (entry as any)?.message;
+    if (entry.type !== "message") continue;
+    const msg = entry.message;
     if (!msg || msg.role !== "assistant") continue;
     const usage = msg.usage;
     if (!usage) continue;
@@ -281,8 +281,8 @@ function sumSessionUsage(ctx: ExtensionCommandContext): {
  */
 function hasCompletedAssistantResponse(ctx: ExtensionCommandContext): boolean {
   for (const entry of ctx.sessionManager.getEntries()) {
-    if ((entry as any)?.type !== "message") continue;
-    const msg = (entry as any)?.message;
+    if (entry.type !== "message") continue;
+    const msg = entry.message;
     if (!msg || msg.role !== "assistant") continue;
     if (msg.stopReason === "aborted" || msg.stopReason === "error") continue;
     if (msg.usage) return true;
@@ -345,6 +345,36 @@ type WindowUsage = {
   remainingTokens: number;
 };
 
+function getLastMessageUsage(ctx: ExtensionCommandContext): {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+  cost: number;
+} | null {
+  for (let i = ctx.sessionManager.getEntries().length - 1; i >= 0; i--) {
+    const entry = ctx.sessionManager.getEntries()[i];
+    if (entry.type !== "message") continue;
+    const msg = entry.message;
+    if (!msg || msg.role !== "assistant") continue;
+    if (!msg.usage) continue;
+    const input = Number(msg.usage.input ?? 0) || 0;
+    const output = Number(msg.usage.output ?? 0) || 0;
+    const cacheRead = Number(msg.usage.cacheRead ?? 0) || 0;
+    const cacheWrite = Number(msg.usage.cacheWrite ?? 0) || 0;
+    return {
+      input,
+      output,
+      cacheRead,
+      cacheWrite,
+      totalTokens: input + output + cacheRead + cacheWrite,
+      cost: extractCostTotal(msg.usage),
+    };
+  }
+  return null;
+}
+
 type ContextViewData = {
   // null = no model/context window info; object = known window usage; "unknown" = model exists but token count unavailable
   window: WindowUsage | null | "unknown";
@@ -357,6 +387,14 @@ type ContextViewData = {
   skills: string[];
   loadedSkills: string[];
   session: { totalTokens: number; totalCost: number };
+  lastMessage: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    totalTokens: number;
+    cost: number;
+  } | null;
 };
 
 class ContextView implements Component {
@@ -501,6 +539,20 @@ class ContextView implements Component {
         muted(" · ") +
         text(formatUsd(this.data.session.totalCost)),
     );
+    if (this.data.lastMessage) {
+      const lm = this.data.lastMessage;
+      lines.push(
+        muted("Last msg: ") +
+          text(`${lm.totalTokens.toLocaleString()} tok`) +
+          muted(" · ") +
+          text(formatUsd(lm.cost)) +
+          muted(" · ") +
+          dim(`in ${lm.input.toLocaleString()} · out ${lm.output.toLocaleString()}`) +
+          (lm.cacheRead > 0 || lm.cacheWrite > 0
+            ? muted(" · ") + dim(`cache r ${lm.cacheRead.toLocaleString()} · w ${lm.cacheWrite.toLocaleString()}`)
+            : ""),
+      );
+    }
 
     this.body.setText(lines.join("\n"));
     this.cachedWidth = width;
@@ -652,6 +704,7 @@ export default function contextExtension(pi: ExtensionAPI) {
       }
 
       const sessionUsage = sumSessionUsage(ctx);
+      const lastMessageUsage = getLastMessageUsage(ctx);
 
       const makePlainText = () => {
         const lines: string[] = [];
@@ -684,6 +737,11 @@ export default function contextExtension(pi: ExtensionAPI) {
         lines.push(
           `Session: ${sessionUsage.totalTokens.toLocaleString()} tokens · ${formatUsd(sessionUsage.totalCost)}`,
         );
+        if (lastMessageUsage) {
+          lines.push(
+            `Last msg: ${lastMessageUsage.totalTokens.toLocaleString()} tok · ${formatUsd(lastMessageUsage.cost)} · in ${lastMessageUsage.input.toLocaleString()} · out ${lastMessageUsage.output.toLocaleString()}${lastMessageUsage.cacheRead > 0 || lastMessageUsage.cacheWrite > 0 ? ` · cache r ${lastMessageUsage.cacheRead.toLocaleString()} · w ${lastMessageUsage.cacheWrite.toLocaleString()}` : ""}`,
+          );
+        }
         return lines.join("\n");
       };
 
@@ -713,6 +771,7 @@ export default function contextExtension(pi: ExtensionAPI) {
           totalTokens: sessionUsage.totalTokens,
           totalCost: sessionUsage.totalCost,
         },
+        lastMessage: lastMessageUsage,
       };
 
       await ctx.ui.custom<void>((tui, theme, _kb, done) => {
