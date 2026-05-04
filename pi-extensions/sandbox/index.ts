@@ -58,7 +58,7 @@
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -101,6 +101,8 @@ function expandFilesystemPaths(config: SandboxConfig): SandboxConfig {
     },
   };
 }
+
+const SANDBOX_TMP_DIR = '/tmp/pi-sandbox';
 
 function shouldBypassSandbox(
   command: string,
@@ -421,6 +423,10 @@ export default function (pi: ExtensionAPI) {
     }
 
     try {
+      // Use /tmp/pi-sandbox instead of /tmp/claude to avoid conflicts
+      process.env.CLAUDE_TMPDIR = SANDBOX_TMP_DIR;
+      mkdirSync(SANDBOX_TMP_DIR, { recursive: true });
+
       const configExt = config as unknown as {
         ignoreViolations?: Record<string, string[]>;
         enableWeakerNestedSandbox?: boolean;
