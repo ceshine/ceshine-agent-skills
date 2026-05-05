@@ -12,13 +12,22 @@ Generate comprehensive pull request descriptions by analyzing git state: staged 
 Use the scripts in `scripts/` to extract git data. **Do not run raw `git diff` or `git log` commands directly** — always use these scripts to ensure consistent output and exclude patterns.
 
 ```bash
-scripts/git-diff.sh <ancestor>         # Diff between ancestor and HEAD
-scripts/git-cached-diff.sh             # Staged (cached) changes
-scripts/git-unstaged-diff.sh           # Unstaged changes (working tree vs index)
-scripts/git-commit-messages.sh <ancestor>  # Commit messages from ancestor to HEAD
+scripts/git-diff.sh [repo-root] <ancestor>         # Diff between ancestor and HEAD
+scripts/git-cached-diff.sh [repo-root]             # Staged (cached) changes
+scripts/git-unstaged-diff.sh [repo-root]           # Unstaged changes (working tree vs index)
+scripts/git-commit-messages.sh [repo-root] <ancestor>  # Commit messages from ancestor to HEAD
 ```
 
-Scripts must be run from the skill directory, or invoked with their full path relative to the repository root (e.g., `git-workflows/scripts/git-diff.sh main`).
+**Always provide the target Git repository root explicitly.** Every script accepts an optional first argument that specifies the root directory of the target Git repository. When omitted it defaults to the current working directory — but relying on the default is error-prone because the agent may be `cd`'d into the skill directory or another unrelated location. Pass the repository root explicitly to guarantee the scripts operate on the correct repo. The argument is validated with `git rev-parse --git-dir` so any path that is not a valid Git repository will be ignored (falling back to `.`):
+
+```bash
+scripts/git-diff.sh /path/to/repo main
+# NOT: cd /path/to/repo && scripts/git-diff.sh main  (avoids wrong-cwd bugs)
+```
+
+Scripts are resolved relative to this skill file's directory. Always use the absolute path of the skill directory when invoking them (e.g., `<skill-dir>/scripts/git-diff.sh` — the agent knows `<skill-dir>` as the directory containing SKILL.md).
+
+All scripts source `common.sh`, which provides the `parse_repo_root` helper for validating and extracting the optional repo-root argument, as well as `build_exclude_args` for pathspec exclusions.
 
 **Exclude patterns:** Files matching patterns in `scripts/excludes.conf` are excluded from diff output. Set the `GIT_SKILL_EXCLUDES` env variable (colon-separated patterns) to override.
 
@@ -47,14 +56,14 @@ Scripts must be run from the skill directory, or invoked with their full path re
 
 Review modifications that have been staged (added to the index) but not yet committed:
 
-1. Get cached changes: `scripts/git-cached-diff.sh`
+1. Get cached changes: `scripts/git-cached-diff.sh <repo-root>` (where `<repo-root>` is the absolute path to the target repository)
 2. Follow the code review guidelines to evaluate changes
 
 #### 1b. Review Unstaged Changes
 
 Review modifications in the working directory that have not yet been staged:
 
-1. Get unstaged changes: `scripts/git-unstaged-diff.sh`
+1. Get unstaged changes: `scripts/git-unstaged-diff.sh <repo-root>`
 2. Follow the code review guidelines to evaluate changes
 
 #### 1c. Review Changes Between Two Commits
@@ -62,8 +71,8 @@ Review modifications in the working directory that have not yet been staged:
 Review the diff introduced between any two commits, branches, or refs:
 
 1. Identify the two refs (e.g., `HEAD~3` and `HEAD`, or `main` and a feature branch).
-2. Get the diff: `scripts/git-diff.sh <base-ref>` (compares base-ref to HEAD).
-3. Optionally gather the commit messages in that range: `scripts/git-commit-messages.sh <base-ref>` to understand the intent behind the changes.
+2. Get the diff: `scripts/git-diff.sh <repo-root> <base-ref>` (compares base-ref to HEAD).
+3. Optionally gather the commit messages: `scripts/git-commit-messages.sh <repo-root> <base-ref>` to understand the intent behind the changes.
 4. Follow the code review guidelines to evaluate changes
 
 ---
@@ -74,7 +83,7 @@ Present findings clearly, distinguishing between blocking issues and optional su
 
 Extract commit messages to understand the history:
 
-`scripts/git-commit-messages.sh <commit-or-branch>`
+`scripts/git-commit-messages.sh <repo-root> <commit-or-branch>`
 
 Returns commit hashes and messages, useful for:
 
@@ -93,7 +102,7 @@ Create a descriptive commit message based on staged changes through an iterative
   - Ask for clarification
   - Or simply confirm they have reviewed the findings and approve moving on
   **Only move on to the the next step after an explicit approval from the user**.
-3. **Load history** - Load the three most recent commit messages (e.g., `scripts/git-commit-messages.sh HEAD~3`) to ensure historical context.
+3. **Load history** - Load the three most recent commit messages (e.g., `scripts/git-commit-messages.sh <repo-root> HEAD~3`) to ensure historical context.
 4. **Draft the commit message** - write it to `{cwd}/cache/commit_message.txt` in the conventional commit format (`{cwd}` is the directory in which the agent was invoked; first remove the file if it already exists, then write to it):
    ```
    <type>(<scope>): <subject>
@@ -135,7 +144,7 @@ Format suggestions:
 #### Workflow Notes
 
 - Identify the merge base (usually `origin/main` or `main`).
-- Run `scripts/git-diff.sh origin/main` and `scripts/git-commit-messages.sh origin/main` to gather the data.
+- Run `scripts/git-diff.sh <repo-root> origin/main` and `scripts/git-commit-messages.sh <repo-root> origin/main` to gather the data.
 - Parse and organize the collected information into the sections above before sharing with the user.
 
 ### 5. Auto-Commit Unstaged Changes
@@ -154,6 +163,6 @@ Automatically analyze, group, and commit unstaged changes into organized convent
 
 If a script fails:
 
-- Verify you are inside a git repository
+- Verify the `<repo-root>` argument points to a valid Git repository (`git -C <repo-root> rev-parse --git-dir`)
 - Check the ancestor ref exists (commit hash or branch name)
 - Ensure the scripts are executable (`chmod +x scripts/*.sh`)

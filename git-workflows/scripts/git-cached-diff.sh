@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Show staged (cached) changes.
-# Usage: git-cached-diff.sh
+# Usage: git-cached-diff.sh [repo-root]
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
+parse_repo_root "$@"
+[[ "$REPO_ROOT" != "." ]] && shift
+
 build_exclude_args
-exec git diff --cached "${EXCLUDE_ARGS[@]}"
+exec git -C "$REPO_ROOT" diff --cached "${EXCLUDE_ARGS[@]}"

@@ -4,6 +4,18 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Parse the optional leading repo-root argument from positional parameters.
+# If $1 is a valid Git repository, sets REPO_ROOT to that path; otherwise defaults to ".".
+# Callers should shift only when REPO_ROOT was consumed:
+#   parse_repo_root "$@"
+#   [[ "$REPO_ROOT" != "." ]] && shift
+parse_repo_root() {
+    REPO_ROOT="."
+    if [[ $# -gt 0 ]] && git -C "$1" rev-parse --git-dir >/dev/null 2>&1; then
+        REPO_ROOT="$1"
+    fi
+}
+
 # Build pathspec exclude arguments from GIT_SKILL_EXCLUDES or excludes.conf.
 # Populates the EXCLUDE_ARGS array.
 build_exclude_args() {
