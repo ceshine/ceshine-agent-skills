@@ -5,14 +5,21 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Parse the optional leading repo-root argument from positional parameters.
-# If $1 is a valid Git repository, sets REPO_ROOT to that path; otherwise defaults to ".".
+# If $1 is a valid Git repository, sets REPO_ROOT to that path.
+# If $1 is provided but is NOT a valid Git repository, the script exits with an error.
+# If no argument is given, defaults to "." (must be a Git repo at runtime).
 # Callers should shift only when REPO_ROOT was consumed:
 #   parse_repo_root "$@"
 #   [[ "$REPO_ROOT" != "." ]] && shift
 parse_repo_root() {
     REPO_ROOT="."
-    if [[ $# -gt 0 ]] && git -C "$1" rev-parse --git-dir >/dev/null 2>&1; then
-        REPO_ROOT="$1"
+    if [[ $# -gt 0 ]]; then
+        if git -C "$1" rev-parse --git-dir >/dev/null 2>&1; then
+            REPO_ROOT="$1"
+        else
+            echo "error: '$1' is not a valid Git repository" >&2
+            exit 1
+        fi
     fi
 }
 

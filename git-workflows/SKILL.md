@@ -18,7 +18,7 @@ scripts/git-unstaged-diff.sh [repo-root]           # Unstaged changes (working t
 scripts/git-commit-messages.sh [repo-root] <ancestor>  # Commit messages from ancestor to HEAD
 ```
 
-**Always provide the target Git repository root explicitly.** Every script accepts an optional first argument that specifies the root directory of the target Git repository. When omitted it defaults to the current working directory — but relying on the default is error-prone because the agent may be `cd`'d into the skill directory or another unrelated location. Pass the repository root explicitly to guarantee the scripts operate on the correct repo. The argument is validated with `git rev-parse --git-dir` so any path that is not a valid Git repository will be ignored (falling back to `.`):
+**Always provide the target Git repository root explicitly.** Every script accepts an optional first argument that specifies the root directory of the target Git repository. When omitted it defaults to the current working directory — but relying on the default is error-prone because the agent may be `cd`'d into the skill directory or another unrelated location. Pass the repository root explicitly to guarantee the scripts operate on the correct repo. **The argument is validated with `git rev-parse --git-dir`; if a path is provided but is not a valid Git repository, the script will exit with an error rather than silently falling back to `.`:**
 
 ```bash
 scripts/git-diff.sh /path/to/repo main
