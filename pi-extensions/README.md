@@ -1,6 +1,15 @@
 # Pi Extensions
 
-Extensions for the [Pi coding agent](https://github.com/badlogic/pi-mono). Each extension is a standalone TypeScript module that hooks into Pi's extension API (`ExtensionAPI`) to intercept tool calls, register commands, or replace built-in tools.
+Extensions for the [Pi coding agent](https://github.com/badlogic/pi-mono).
+
+| Extension | Description |
+|---|---|
+| [`bash-permission-gate`](#bash-permission-gate) | Intercepts dangerous `bash` commands (`rm -rf`, `sudo`, `chmod 777`) and prompts for confirmation |
+| [`external-path-permission-gate`](#external-path-permission-gate) | Gates `read`/`write`/`edit` on paths outside the working directory |
+| [`protected-paths`](#protected-paths) | Declares paths as read-only or fully blocked for Pi's file tools |
+| [`output-styles`](#output-styles) | Configurable agent output styles (concise, explanatory, teaching, verbose) with `/output-style` command |
+| [`sandbox`](#sandbox) | OS-level sandboxing for bash commands via `sandbox-exec`/`bubblewrap` |
+| [`summarization-usage`](#summarization-usage) | Captures token usage & metadata during branch summaries and context compaction | Each extension is a standalone TypeScript module that hooks into Pi's extension API (`ExtensionAPI`) to intercept tool calls, register commands, or replace built-in tools.
 
 Install by copying the relevant files into `~/.pi/agent/extensions/<name>/` and running `npm install` if the extension has dependencies.
 
@@ -82,13 +91,13 @@ Makes the agent's output style configurable. Styles inject system-level instruct
 
 ### Built-in Styles
 
-| Style | Description |
-|-------|-------------|
-| `default` | No style override |
-| `concise` | Brief, to-the-point responses |
-| `explanatory` | Educational insights with `★ Insight` blocks |
-| `teaching` | Explain concepts as if teaching a skilled peer |
-| `verbose` | Thorough, detailed explanations |
+| Style         | Description                                    |
+| ------------- | ---------------------------------------------- |
+| `default`     | No style override                              |
+| `concise`     | Brief, to-the-point responses                  |
+| `explanatory` | Educational insights with `★ Insight` blocks   |
+| `teaching`    | Explain concepts as if teaching a skilled peer |
+| `verbose`     | Thorough, detailed explanations                |
 
 ### Custom Styles
 
@@ -99,6 +108,7 @@ Place `.md` files with frontmatter in `.pi/output-styles/` at the project root:
 name: my-style
 description: A custom style
 ---
+
 Your style instructions here...
 ```
 
@@ -155,8 +165,8 @@ Merge configuration from `~/.pi/agent/extensions/sandbox.json` (global) and `<cw
 
 **Key semantics:**
 
-- **Read** uses a *deny-then-allow* pattern: all reads are allowed by default; `denyRead` blocks broad regions; `allowRead` re-allows specific paths within denied regions.
-- **Write** uses an *allow-only* pattern: all writes are denied by default; `allowWrite` must explicitly list allowed paths; `denyWrite` creates exceptions within allowed paths.
+- **Read** uses a _deny-then-allow_ pattern: all reads are allowed by default; `denyRead` blocks broad regions; `allowRead` re-allows specific paths within denied regions.
+- **Write** uses an _allow-only_ pattern: all writes are denied by default; `allowWrite` must explicitly list allowed paths; `denyWrite` creates exceptions within allowed paths.
 - **`ignoreList`** — command prefixes that bypass the sandbox after user confirmation (e.g. `"docker "` for Docker commands that need host access).
 
 ### Commands & Flags
@@ -169,4 +179,27 @@ Merge configuration from `~/.pi/agent/extensions/sandbox.json` (global) and `<cw
 ```bash
 cp -r pi-extensions/sandbox/ ~/.pi/agent/extensions/sandbox/
 cd ~/.pi/agent/extensions/sandbox/ && npm install
+```
+
+---
+
+## `summarization-usage`
+
+**File:** [`summarization-usage.ts`](summarization-usage.ts)
+
+Captures token usage, API, provider, and model metadata that Pi normally discards during summarization (branch summaries and context compaction).
+
+Hooks into:
+
+- `session_before_tree` — branch summaries (`/tree`)
+- `session_before_compact` — context compaction (`/compact`)
+
+After installation, every branch_summary and compaction entry in session JSONL files includes `details.usage`, `details.api`, `details.provider`, and `details.model`.
+
+Also preserves file operation lists (`readFiles`, `modifiedFiles`) in both the summary text and details.
+
+**No configuration required** — enable by loading the extension:
+
+```bash
+pi -e ./pi-extensions/summarization-usage.ts
 ```
