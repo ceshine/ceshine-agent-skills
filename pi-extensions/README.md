@@ -9,9 +9,31 @@ Extensions for the [Pi coding agent](https://github.com/badlogic/pi-mono).
 | [`protected-paths`](#protected-paths) | Declares paths as read-only or fully blocked for Pi's file tools |
 | [`output-styles`](#output-styles) | Configurable agent output styles (concise, explanatory, teaching, verbose) with `/output-style` command |
 | [`sandbox`](#sandbox) | OS-level sandboxing for bash commands via `sandbox-exec`/`bubblewrap` |
-| [`summarization-usage`](#summarization-usage) | Captures token usage & metadata during branch summaries and context compaction | Each extension is a standalone TypeScript module that hooks into Pi's extension API (`ExtensionAPI`) to intercept tool calls, register commands, or replace built-in tools.
+| [`summarization-usage`](#summarization-usage) | Captures token usage & metadata during branch summaries and context compaction |
+| [`concise-read`](#concise-read) | Suppresses `read` tool output from the TUI to reduce visual clutter | Each extension is a standalone TypeScript module that hooks into Pi's extension API (`ExtensionAPI`) to intercept tool calls, register commands, or replace built-in tools.
 
 Install by copying the relevant files into `~/.pi/agent/extensions/<name>/` and running `npm install` if the extension has dependencies.
+
+---
+
+## `concise-read`
+
+**File:** [`concise-read.ts`](concise-read.ts)
+
+Replaces the built-in `read` tool with a version that suppresses its output in the TUI. Useful when the agent reads files frequently and the output noise distracts from the conversation.
+
+- **Collapsed (default):** output is hidden
+- **Expanded (Ctrl+O):** full file content is shown
+- **During execution:** shows a brief `reading...` indicator
+- **Tool call rendering:** shows the path and optional offset/limit
+
+The `read` tool's behavior and parameters are unchanged — only the display is affected.
+
+**No configuration required** — enable by loading the extension:
+
+```bash
+pi -e ./pi-extensions/concise-read.ts
+```
 
 ---
 
