@@ -17,6 +17,7 @@ import type {
   ExtensionAPI,
   SessionBeforeCompactEvent,
   SessionBeforeTreeEvent,
+  ThinkingLevel,
 } from "@earendil-works/pi-coding-agent";
 import {
   convertToLlm,
@@ -240,7 +241,16 @@ async function callLlm(
   signal: AbortSignal,
   promptText: string,
   maxTokens: number,
+  thinkingLevel?: ThinkingLevel,
 ): Promise<AssistantMessage> {
+  // Enable reasoning for models that support it, matching Pi's internal
+  // generateSummary() behavior: pass the current thinking level so
+  // summarization calls benefit from extended thinking budgets when active.
+  const reasoning =
+    model.reasoning && thinkingLevel && thinkingLevel !== "off"
+      ? { reasoning: thinkingLevel }
+      : {};
+
   return complete(
     model,
     {
@@ -253,7 +263,7 @@ async function callLlm(
         },
       ],
     },
-    { apiKey: auth.apiKey, headers: auth.headers, signal, maxTokens },
+    { apiKey: auth.apiKey, headers: auth.headers, signal, maxTokens, ...reasoning },
   );
 }
 
@@ -262,6 +272,50 @@ function extractText(response: AssistantMessage): string {
     .filter((c): c is { type: "text"; text: string } => c.type === "text")
     .map((c) => c.text)
     .join("\n");
+}
+
+/**
+ * Deep-merge two Usage-like records by summing numeric fields and
+ * recursively merging nested objects (e.g. the `cost` sub-record).
+ *
+ * This handles the shape produced by `AssistantMessage.usage`:
+ *   { input, output, cacheRead, cacheWrite, totalTokens,
+ *     cost: { input, output, cacheRead, cacheWrite, total } }
+ */
+function mergeUsage(
+  a?: Record<string, unknown>,
+  b?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (!a && !b) return undefined;
+  const result: Record<string, unknown> = {};
+  for (const key of new Set([
+    ...Object.keys(a || {}),
+    ...Object.keys(b || {}),
+  ])) {
+    const va = a?.[key];
+    const vb = b?.[key];
+    if (typeof va === "number" && typeof vb === "number") {
+      result[key] = va + vb;
+    } else if (
+      va !== null &&
+      typeof va === "object" &&
+      !Array.isArray(va) &&
+      vb !== null &&
+      typeof vb === "object" &&
+      !Array.isArray(vb)
+    ) {
+      // Nested object like `cost` — recurse
+      result[key] = mergeUsage(
+        va as Record<string, unknown>,
+        vb as Record<string, unknown>,
+      );
+    } else if (va !== undefined) {
+      result[key] = va;
+    } else if (vb !== undefined) {
+      result[key] = vb;
+    }
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -293,6 +347,8 @@ export default function (pi: ExtensionAPI) {
 
       const { entriesToSummarize, customInstructions, replaceInstructions } =
         preparation;
+
+      const thinkingLevel = pi.getThinkingLevel();
 
       const reserveTokens = 16384;
       const contextWindow = model.contextWindow || 128000;
@@ -330,6 +386,7 @@ export default function (pi: ExtensionAPI) {
           signal,
           promptText,
           2048,
+          thinkingLevel,
         );
       } catch (err) {
         throw new Error(
@@ -419,6 +476,8 @@ export default function (pi: ExtensionAPI) {
         for (const f of prepFileOps.edited) fileOps.edited.add(f);
       }
 
+      const thinkingLevel = pi.getThinkingLevel();
+
       const reserveTokens = settings.reserveTokens || 16384;
       const llmAuth: LlmAuth = {
         apiKey: auth.apiKey,
@@ -427,6 +486,7 @@ export default function (pi: ExtensionAPI) {
 
       let summary: string;
       let mainResponse: AssistantMessage | undefined;
+      let usageToReport: Record<string, unknown> | undefined;
 
       if (isSplitTurn && turnPrefixMessages.length > 0) {
         const maxTokensHistory = Math.floor(0.8 * reserveTokens);
@@ -459,10 +519,25 @@ export default function (pi: ExtensionAPI) {
                 signal,
                 promptText,
                 maxTokensHistory,
+                thinkingLevel,
               )
             : Promise.resolve(undefined),
-          callLlm(model, llmAuth, signal, prefixPromptText, maxTokensPrefix),
+          callLlm(model, llmAuth, signal, prefixPromptText, maxTokensPrefix, thinkingLevel),
         ]);
+
+        if (
+          historyResponse &&
+          (historyResponse.stopReason === "aborted" ||
+            historyResponse.stopReason === "error")
+        ) {
+          return;
+        }
+        if (
+          prefixResponse.stopReason === "aborted" ||
+          prefixResponse.stopReason === "error"
+        ) {
+          return;
+        }
 
         const historyText = historyResponse
           ? extractText(historyResponse)
@@ -471,6 +546,7 @@ export default function (pi: ExtensionAPI) {
 
         summary = `${historyText}\n\n---\n\n**Turn Context (split turn):**\n\n${prefixText}`;
         mainResponse = historyResponse ?? prefixResponse;
+        usageToReport = mergeUsage(historyResponse?.usage, prefixResponse?.usage);
       } else {
         let basePrompt = previousSummary
           ? UPDATE_COMPACTION_PROMPT
@@ -495,6 +571,7 @@ export default function (pi: ExtensionAPI) {
           signal,
           promptText,
           maxTokens,
+          thinkingLevel,
         );
 
         if (
@@ -506,6 +583,7 @@ export default function (pi: ExtensionAPI) {
 
         summary = extractText(response);
         mainResponse = response;
+        usageToReport = response.usage;
       }
 
       const { readFiles, modifiedFiles } = computeFileLists(fileOps);
@@ -519,7 +597,7 @@ export default function (pi: ExtensionAPI) {
           details: {
             readFiles,
             modifiedFiles,
-            usage: mainResponse?.usage,
+            usage: usageToReport,
             api: mainResponse?.api,
             provider: mainResponse?.provider,
             model: mainResponse?.model,
