@@ -30,6 +30,11 @@ interface CrofAIModel {
   custom_reasoning?: boolean;
 }
 
+interface UsageData {
+  usable_requests: number | null;
+  credits: number;
+}
+
 interface CrofAIResponse {
   data: CrofAIModel[];
 }
@@ -95,6 +100,39 @@ async function fetchModels() {
   return data;
 }
 
+async function updateUsageStatus(ctx: any) {
+  try {
+    const apiKey = await ctx.modelRegistry.getApiKeyForProvider("crofai");
+    if (!apiKey) {
+      ctx.ui.setStatus("usage-crofai", ctx.ui.theme.fg("warning", "crofai: no API key"));
+      return;
+    }
+
+    const res = await fetch("https://crof.ai/usage_api/", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    if (!res.ok) {
+      ctx.ui.setStatus("usage-crofai", ctx.ui.theme.fg("error", "crofai: API error"));
+      return;
+    }
+
+    const data = (await res.json()) as UsageData;
+    const parts: string[] = [];
+
+    if (data.usable_requests !== null && data.usable_requests !== undefined) {
+      parts.push(`${data.usable_requests} reqs left`);
+    }
+    if (data.credits !== undefined && data.credits > 0) {
+      parts.push(`$${data.credits.toFixed(4)}`);
+    }
+
+    ctx.ui.setStatus("usage-crofai", `crofai: ${parts.join(" | ")}`);
+  } catch {
+    ctx.ui.setStatus("usage-crofai", ctx.ui.theme.fg("error", "crofai: fetch failed"));
+  }
+}
+
 export default async function (pi: ExtensionAPI) {
   let models: CrofAIModel[];
 
@@ -110,6 +148,15 @@ export default async function (pi: ExtensionAPI) {
     apiKey: "CROFAI_API_KEY",
     api: "openai-completions",
     models: mapModels(models),
+  });
+
+  // Usage status — fetch on start and after every agent response
+  pi.on("session_start", async (_event, ctx) => {
+    updateUsageStatus(ctx); // fire-and-forget
+  });
+
+  pi.on("agent_end", async (_event, ctx) => {
+    updateUsageStatus(ctx); // fire-and-forget
   });
 
   // How the API key gets resolved (in priority order):
