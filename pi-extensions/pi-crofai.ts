@@ -104,7 +104,10 @@ async function updateUsageStatus(ctx: any) {
   try {
     const apiKey = await ctx.modelRegistry.getApiKeyForProvider("crofai");
     if (!apiKey) {
-      ctx.ui.setStatus("usage-crofai", ctx.ui.theme.fg("warning", "crofai: no API key"));
+      ctx.ui.setStatus(
+        "usage-crofai",
+        ctx.ui.theme.fg("warning", "🔑 crofai: no API key"),
+      );
       return;
     }
 
@@ -113,7 +116,10 @@ async function updateUsageStatus(ctx: any) {
     });
 
     if (!res.ok) {
-      ctx.ui.setStatus("usage-crofai", ctx.ui.theme.fg("error", "crofai: API error"));
+      ctx.ui.setStatus(
+        "usage-crofai",
+        ctx.ui.theme.fg("error", "⚠️ crofai: API error"),
+      );
       return;
     }
 
@@ -121,15 +127,21 @@ async function updateUsageStatus(ctx: any) {
     const parts: string[] = [];
 
     if (data.usable_requests !== null && data.usable_requests !== undefined) {
-      parts.push(`${data.usable_requests} reqs left`);
+      parts.push(`${data.usable_requests} ${ctx.ui.theme.fg("dim", "reqs")}`);
     }
     if (data.credits !== undefined && data.credits > 0) {
-      parts.push(`$${data.credits.toFixed(4)}`);
+      parts.push(`${ctx.ui.theme.fg("dim", "💰 $")}${data.credits.toFixed(4)}`);
     }
 
-    ctx.ui.setStatus("usage-crofai", `crofai: ${parts.join(" | ")}`);
+    ctx.ui.setStatus(
+      "usage-crofai",
+      `${ctx.ui.theme.fg("dim", "  📊 [crof.ai]")} ${parts.join(" | ")}`,
+    );
   } catch {
-    ctx.ui.setStatus("usage-crofai", ctx.ui.theme.fg("error", "crofai: fetch failed"));
+    ctx.ui.setStatus(
+      "usage-crofai",
+      ctx.ui.theme.fg("error", "❌ crofai: fetch failed"),
+    );
   }
 }
 
