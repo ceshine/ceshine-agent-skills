@@ -157,7 +157,7 @@ export default async function (pi: ExtensionAPI) {
 
   pi.registerProvider("crofai", {
     baseUrl: "https://crof.ai/v1",
-    apiKey: "CROFAI_API_KEY",
+    apiKey: "$CROFAI_API_KEY",
     api: "openai-completions",
     models: mapModels(models),
   });
