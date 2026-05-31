@@ -100,13 +100,30 @@ async function fetchModels() {
   return data;
 }
 
+/**
+ * Safely run a callback that uses ctx.ui. Silently catches stale-ctx errors
+ * that occur after session replacement or reload.
+ */
+function tryCtx(ctx: any, fn: (ctx: any) => void) {
+  try {
+    fn(ctx);
+  } catch (e: any) {
+    if (e?.message?.includes?.("stale")) return;
+    throw e;
+  }
+}
+
 async function updateUsageStatus(ctx: any) {
   try {
     const apiKey = await ctx.modelRegistry.getApiKeyForProvider("crofai");
     if (!apiKey) {
-      ctx.ui.setStatus(
-        "usage-crofai",
-        ctx.ui.theme.fg("warning", "🔑 crofai: no API key"),
+      tryCtx(
+        ctx,
+        (ctx) =>
+          ctx.ui.setStatus(
+            "usage-crofai",
+            ctx.ui.theme.fg("warning", "🔑 crofai: no API key"),
+          ),
       );
       return;
     }
@@ -116,9 +133,13 @@ async function updateUsageStatus(ctx: any) {
     });
 
     if (!res.ok) {
-      ctx.ui.setStatus(
-        "usage-crofai",
-        ctx.ui.theme.fg("error", "⚠️ crofai: API error"),
+      tryCtx(
+        ctx,
+        (ctx) =>
+          ctx.ui.setStatus(
+            "usage-crofai",
+            ctx.ui.theme.fg("error", "⚠️ crofai: API error"),
+          ),
       );
       return;
     }
@@ -133,14 +154,22 @@ async function updateUsageStatus(ctx: any) {
       parts.push(`${ctx.ui.theme.fg("dim", "💰 $")}${data.credits.toFixed(4)}`);
     }
 
-    ctx.ui.setStatus(
-      "usage-crofai",
-      `${ctx.ui.theme.fg("dim", "  📊 [crof.ai]")} ${parts.join(" | ")}`,
+    tryCtx(
+      ctx,
+      (ctx) =>
+        ctx.ui.setStatus(
+          "usage-crofai",
+          `${ctx.ui.theme.fg("dim", "  📊 [crof.ai]")} ${parts.join(" | ")}`,
+        ),
     );
   } catch {
-    ctx.ui.setStatus(
-      "usage-crofai",
-      ctx.ui.theme.fg("error", "❌ crofai: fetch failed"),
+    tryCtx(
+      ctx,
+      (ctx) =>
+        ctx.ui.setStatus(
+          "usage-crofai",
+          ctx.ui.theme.fg("error", "❌ crofai: fetch failed"),
+        ),
     );
   }
 }
@@ -164,11 +193,19 @@ export default async function (pi: ExtensionAPI) {
 
   // Usage status — fetch on start and after every agent response
   pi.on("session_start", async (_event, ctx) => {
-    updateUsageStatus(ctx); // fire-and-forget
+    try {
+      await updateUsageStatus(ctx);
+    } catch {
+      // ctx may be stale after session replacement; skip silently
+    }
   });
 
   pi.on("agent_end", async (_event, ctx) => {
-    updateUsageStatus(ctx); // fire-and-forget
+    try {
+      await updateUsageStatus(ctx);
+    } catch {
+      // ctx may be stale after session replacement; skip silently
+    }
   });
 
   // How the API key gets resolved (in priority order):
