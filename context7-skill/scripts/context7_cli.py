@@ -2,7 +2,7 @@
 #
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["fastmcp>=2.14.0,<3", "typer>=0.12.0"]
+# dependencies = ["fastmcp>=2.14.0,<3", "typer>=0.12.0", "socksio>=1.0.0"]
 # ///
 
 """Context7 Unified CLI
