@@ -5,9 +5,11 @@ description: Fetch transcripts and create structured watching guides / summaries
 
 # YouTube Video Tools
 
-Fetch YouTube video transcripts and produce structured watching guides via the `defuddle` CLI (`npx defuddle` from the npm registry).
+Fetch YouTube video transcripts and produce structured watching guides via CLI tools.
 
-## Fetching Transcripts
+## Fetching Transcripts with defuddle
+
+Default approach:
 
 ```bash
 npx defuddle parse <youtube-url> --markdown
@@ -15,15 +17,33 @@ npx defuddle parse <youtube-url> --markdown
 
 Always use `--markdown` to get the transcript in readable Markdown format.
 
-### Options
+### Defuddle Options
 
 - `--lang <code>` — request a specific language (BCP 47, e.g. `en`, `ja`, `zh`).
 - `-o <file>` — write output to a file instead of stdout.
 
-### Notes
+### Defuddle Caveats & Limitations
 
 - Videos without captions will return no transcript.
-- The output includes a link to the video, the video description, and timestamped transcript segments.
+- `defuddle` output includes a link to the video, the video description, and timestamped transcript segments.
+
+## Fetching Auto-generated Subtitles with yt-dlp
+
+Use this alternative approach when defuddle failed to provide useful results:
+
+1. Use the `yt-dlp` binary in the user's PATH if available.
+2. If `yt-dlp` is unavailable but `uvx` is available, use `uvx yt-dlp`.
+3. Ignore this approach if neither `yt-dlp` nor `uvx` is available.
+
+```bash
+if command -v yt-dlp >/dev/null 2>&1; then
+  yt-dlp --write-auto-subs --sub-langs en --skip-download -o "/tmp/video" "<YOUTUBE_VIDEO_URL>" 2>&1
+elif command -v uvx >/dev/null 2>&1; then
+  uvx yt-dlp --write-auto-subs --sub-langs en --skip-download -o "/tmp/video" "<YOUTUBE_VIDEO_URL>" 2>&1
+fi
+```
+
+This writes subtitle files such as `/tmp/video.en.vtt`; read the generated file for the transcript.
 
 ## Creating a Watching Guide
 
@@ -31,7 +51,7 @@ A watching guide is a structured summary that breaks a video into segments with 
 
 ### Workflow
 
-1. **Fetch the transcript** using `npx defuddle parse <url> --markdown`.
+1. **Fetch the transcript** using one of the approaches (defuddle or yt-dlp) above.
 2. **Analyze the transcript** — identify natural topic boundaries, key quotes, and timestamps.
 3. **Produce the watching guide** in the Markdown format below.
 4. **Save the output** to a file (default: `watching-guide.md`, or as the user specifies).
