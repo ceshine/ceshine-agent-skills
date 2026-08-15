@@ -39,7 +39,7 @@ Use this alternative approach when defuddle failed to provide useful results:
 if command -v yt-dlp >/dev/null 2>&1; then
   yt-dlp --write-auto-subs --sub-langs en --skip-download -o "/tmp/video" "<YOUTUBE_VIDEO_URL>" 2>&1
 elif command -v uvx >/dev/null 2>&1; then
-  uvx yt-dlp --write-auto-subs --sub-langs en --skip-download -o "/tmp/video" "<YOUTUBE_VIDEO_URL>" 2>&1
+  uvx yt-dlp@latest --write-auto-subs --sub-langs en --skip-download -o "/tmp/video" "<YOUTUBE_VIDEO_URL>" 2>&1
 fi
 ```
 
