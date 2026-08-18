@@ -53,7 +53,7 @@ A watching guide is a structured summary that breaks a video into segments with 
 
 1. **Fetch the transcript** using one of the approaches (defuddle or yt-dlp) above.
 2. **Analyze the transcript** — identify natural topic boundaries, key quotes, and timestamps.
-3. **Produce the watching guide** in the Markdown format below.
+3. **Produce the watching guide** in the Markdown format below, including its frontmatter.
 4. **Save the output** to a file (default: `watching-guide.md`, or as the user specifies).
 
 ### Timestamp Links
@@ -69,6 +69,12 @@ Example: `0:09:57` → `&t=597s` (9×60 + 57 = 597).
 ### Output Format
 
 ````markdown
+---
+Title: "[Video Title](https://www.youtube.com/watch?v=VIDEO_ID)"
+read: false
+created: YYYY-MM-DD
+---
+
 # Watching guide — [Video Title]
 
 *[Brief description, e.g. "Host interviews Guest"] · ~[duration] · [video link]*
