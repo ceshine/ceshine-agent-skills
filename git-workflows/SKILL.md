@@ -29,7 +29,13 @@ Scripts are resolved relative to this skill file's directory. Always use the abs
 
 All scripts source `common.sh`, which provides the `parse_repo_root` helper for validating and extracting the optional repo-root argument, as well as `build_exclude_args` for pathspec exclusions.
 
-**Exclude patterns:** Files matching patterns in `scripts/excludes.conf` are excluded from diff output. Set the `GIT_SKILL_EXCLUDES` env variable (colon-separated patterns) to override.
+**Exclude patterns:** Files matching patterns in `scripts/excludes.conf` are excluded from diff output. Set the `GIT_SKILL_EXCLUDES` env variable (colon-separated patterns) to override. Patterns are applied with `:(exclude,glob)` pathspec magic, so `**/foo` matches at any depth **including the repository root**. To debug the exact git command a script runs (e.g., when excludes seem to have no effect), set `GIT_SKILL_DEBUG=1` — the script then echoes the shell-quoted command to stderr before executing it:
+
+```bash
+GIT_SKILL_DEBUG=1 scripts/git-cached-diff.sh /path/to/repo
+```
+
+**Non-interactive by default:** all script-driven git commands run with `--no-pager` and `GIT_TERMINAL_PROMPT=0`, so they never block on an interactive pager or a credential prompt. Override the prompt behavior explicitly with `GIT_TERMINAL_PROMPT=1` if ever needed.
 
 ## Building Blocks
 

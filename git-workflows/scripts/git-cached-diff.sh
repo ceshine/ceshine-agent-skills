@@ -8,4 +8,4 @@ parse_repo_root "$@"
 [[ "$REPO_ROOT" != "." ]] && shift
 
 build_exclude_args
-exec git -C "$REPO_ROOT" diff --cached "${EXCLUDE_ARGS[@]}"
+run_git -C "$REPO_ROOT" diff --cached "${EXCLUDE_ARGS[@]}"

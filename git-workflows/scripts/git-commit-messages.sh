@@ -13,4 +13,4 @@ if [[ $# -lt 1 ]]; then
 fi
 
 ancestor="$1"
-exec git -C "$REPO_ROOT" log --format='--- commit ---%nHash: %H%nAuthor: %an%nDate: %aI%n%n%B' "$ancestor"..HEAD
+run_git -C "$REPO_ROOT" log --format='--- commit ---%nHash: %H%nAuthor: %an%nDate: %aI%n%n%B' "$ancestor"..HEAD

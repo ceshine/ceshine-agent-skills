@@ -25,6 +25,14 @@ parse_repo_root() {
 
 # Build pathspec exclude arguments from GIT_SKILL_EXCLUDES or excludes.conf.
 # Populates the EXCLUDE_ARGS array.
+#
+# Patterns are emitted with the long-form magic ':(exclude,glob)':
+#   - ':(exclude)' (not the ':!' shorthand) avoids shell history-expansion and
+#     environment escaping hazards around '!' (e.g. some shells/tools rewrite
+#     ':!foo' into ':\!foo', which git then treats as a literal pathname and
+#     silently matches nothing).
+#   - glob magic makes '**/' match at ANY depth INCLUDING the repository root
+#     (plain pathspec '**/foo' does not match a root-level 'foo').
 build_exclude_args() {
     EXCLUDE_ARGS=()
     local patterns=()
@@ -46,7 +54,26 @@ build_exclude_args() {
     if [[ ${#patterns[@]} -gt 0 ]]; then
         EXCLUDE_ARGS+=("--")
         for pattern in "${patterns[@]}"; do
-            EXCLUDE_ARGS+=(":!${pattern}")
+            EXCLUDE_ARGS+=(":(exclude,glob)${pattern}")
         done
     fi
+}
+
+# Run git non-interactively, echoing the exact command (shell-quoted) to
+# stderr first when GIT_SKILL_DEBUG is set. Intended for debugging
+# exclude/pathspec issues:
+#   GIT_SKILL_DEBUG=1 scripts/git-cached-diff.sh /path/to/repo
+#
+# Non-interactive by default:
+#   - --no-pager: never invoke an interactive pager (e.g. `less`) that would
+#     block waiting for input.
+#   - GIT_TERMINAL_PROMPT=0: never prompt on the terminal (e.g. credential
+#     prompts). Override explicitly with GIT_TERMINAL_PROMPT=1 if needed.
+run_git() {
+    if [[ -n "${GIT_SKILL_DEBUG:-}" ]]; then
+        printf 'git --no-pager' >&2
+        for a in "$@"; do printf ' %q' "$a" >&2; done
+        printf '\n' >&2
+    fi
+    exec env GIT_TERMINAL_PROMPT="${GIT_TERMINAL_PROMPT:-0}" git --no-pager "$@"
 }

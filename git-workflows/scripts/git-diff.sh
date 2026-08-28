@@ -14,4 +14,4 @@ fi
 
 ancestor="$1"
 build_exclude_args
-exec git -C "$REPO_ROOT" diff "$ancestor"..HEAD "${EXCLUDE_ARGS[@]}"
+run_git -C "$REPO_ROOT" diff "$ancestor"..HEAD "${EXCLUDE_ARGS[@]}"
