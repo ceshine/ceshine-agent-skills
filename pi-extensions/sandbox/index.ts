@@ -102,7 +102,7 @@ function expandFilesystemPaths(config: SandboxConfig): SandboxConfig {
   };
 }
 
-const SANDBOX_TMP_DIR = '/tmp/pi-sandbox';
+const SANDBOX_TMP_DIR = "/tmp/pi-sandbox";
 
 function shouldBypassSandbox(
   command: string,
