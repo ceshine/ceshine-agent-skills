@@ -34,6 +34,21 @@ Extensions for the [Pi coding agent](https://github.com/badlogic/pi-mono). See [
 | `output-styles` | [`output-styles/`](pi-extensions/output-styles/) | Configurable output styles (tone, verbosity, formatting). |
 | `sandbox` | [`sandbox/`](pi-extensions/sandbox/) | OS-level sandboxing for bash commands. |
 
+## Claude Subagents
+
+Subagent definitions for [Claude Code](https://code.claude.com/docs/en/sub-agents). Install one by symlinking it into `~/.claude/agents/`:
+
+```bash
+mkdir -p ~/.claude/agents
+ln -s "$(git rev-parse --show-toplevel)/claude-subagents/<agent-name>.md" ~/.claude/agents/
+```
+
+Required skills must be installed at user level (`~/.claude/skills/<skill-name>`), because the subagent definitions refer to the skill files by that path.
+
+| Subagent | Requires | Description |
+|----------|----------|-------------|
+| [`staged-reviewer`](claude-subagents/staged-reviewer.md) | [git-workflows](git-workflows/) at `~/.claude/skills/git-workflows` | Reviews staged git changes and returns structured review comments (blocking items and suggestions with stable IDs). Supports follow-up rounds: the main agent continues the same reviewer via `SendMessage` after addressing the comments. |
+
 ## Acknowledgements
 
 This section lists resources I used when creating the skills of this repository, categorized by topics.
