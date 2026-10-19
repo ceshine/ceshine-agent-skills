@@ -17,7 +17,8 @@ npx skills add <skill-name>
 | [using-skills](using-skills/) | Always use at the beginning of a session. Establishes how to find and use skills, and requires relevant Skill tool invocation before any response. |
 | [skill-creator](skill-creator/) | Guide for creating effective skills. Use when creating or updating a skill that extends the agent's capabilities. |
 | [git-workflows](git-workflows/) | Handles all git-related requests (commit messages, staging review, history, PR descriptions) consistently. |
-| [generate-commit-message](generate-commit-message/) | (Shortcut Command) Generate a commit message for staged git changes. |
+| [generate-commit-message](generate-commit-message/) | (Shortcut Command) Review staged git changes and generate a commit message. For a session that did not write the changes. |
+| [review-and-commit](review-and-commit/) | (Shortcut Command, Claude Code only) Have the [`staged-reviewer`](claude-subagents/staged-reviewer.md) subagent review staged changes, resolve the findings with the user, then generate a commit message. For the session that wrote the changes. Requires the `staged-reviewer` subagent. |
 | [context7-skill](context7-skill/) | Access up-to-date, version-specific documentation and code examples from Context7. |
 | [markdown-dot-new](markdown-dot-new/) | Convert a public web page URL into Markdown via `markdown.new`. |
 | [web-search-and-fetch](web-search-and-fetch/) | Using patchright to conduct Google search and fetch web pages in the Markdown format. Skill file copied directly from the [`skill-for-cli/`](https://github.com/ceshine/python-playwright-google-search/tree/main/skill-for-cli) subfolder of the [ceshine/python-playwright-google-search](https://github.com/ceshine/python-playwright-google-search) repo. |

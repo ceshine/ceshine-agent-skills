@@ -143,25 +143,7 @@ Run `scripts/git-cached-diff.sh`. Must be empty. If not, **STOP** — something 
 - **Whole files**: `git add <file1> <file2> ...`
 - **Deleted files**: `git rm <file>`
 - **Untracked files**: `git add <file>`
-- **Specific hunks** (partial file staging) — use patch-based staging:
-
-  **Procedure:**
-  1. Extract the full diff for the file:
-     ```bash
-     git diff -- <file> > ./cache/full_patch.patch
-     ```
-  2. Read the patch and identify which hunks belong to this commit group (by matching the `@@` headers recorded in Pass 2).
-  3. Write a new patch file containing **only** the target hunks. The file must include:
-     - The patch header lines (`diff --git`, `index`, `---`, `+++`)
-     - Only the `@@ ... @@` hunk sections assigned to this group
-     - All context lines (lines starting with a space) within those hunks — do not strip them
-  4. Apply the filtered patch to the index:
-     ```bash
-     git apply --cached ./cache/target_hunks.patch
-     ```
-  5. If `git apply` fails (e.g., context mismatch), try with `--3way` flag as a fallback. If that also fails, inform the user and ask for guidance.
-
-  **Important:** After committing hunks from a file in one group, the working-tree diff for that file changes (the committed hunks are no longer in the diff). Re-extract the diff (`git diff -- <file>`) before staging hunks from the same file for a subsequent group.
+- **Specific hunks** (partial file staging): follow Method B (hunk filtering) in `references/partial_staging.md`, selecting the hunks by the `@@` headers recorded in Pass 2 and using `./cache/` for the patch files. After committing hunks from a file in one group, re-extract its diff before staging hunks from it for a subsequent group.
 
 ### 4c. Verify staging matches plan
 
